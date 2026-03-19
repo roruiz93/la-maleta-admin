@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Maleta — Panel de Administración</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/src/admin.css">
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="ls-box">
+    <div class="ls-logo">
+      <svg width="52" height="52" viewBox="0 0 44 44" fill="none">
+        <rect x="5" y="13" width="34" height="24" rx="5" stroke="#b8924a" stroke-width="2.2"/>
+        <path d="M14 13V10a8 8 0 0 1 16 0v3" stroke="#b8924a" stroke-width="2.2" stroke-linecap="round"/>
+        <rect x="19" y="20" width="6" height="8" rx="1.5" stroke="#b8924a" stroke-width="1.8"/>
+        <path d="M5 27h34" stroke="#b8924a" stroke-width="1.5" stroke-dasharray="3 2.5"/>
+      </svg>
+      <div><span class="ls-sub">Viajes</span><span class="ls-name">La Maleta</span></div>
+    </div>
+    <h1 class="ls-title">Panel de Administración</h1>
+    <p class="ls-desc">Ingresá para gestionar el contenido del sitio</p>
+    <div class="lf"><label>Email</label><input type="email" id="lu" placeholder="admin@lamaleta.com" autocomplete="email"></div>
+    <div class="lf"><label>Contraseña</label><input type="password" id="lp" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="ls-btn" id="login-submit" onclick="doLogin()">Ingresar</button>
+    <div class="ls-err" id="lerr"></div>
+  </div>
+</div>
+
+<!-- CMS PANEL -->
+<div id="cms-panel" style="display:none">
+
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div class="tb-left">
+      <div class="tb-brand">
+        <svg width="28" height="28" viewBox="0 0 44 44" fill="none">
+          <rect x="5" y="13" width="34" height="24" rx="5" stroke="#b8924a" stroke-width="2"/>
+          <path d="M14 13V10a8 8 0 0 1 16 0v3" stroke="#b8924a" stroke-width="2" stroke-linecap="round"/>
+          <rect x="19" y="20" width="6" height="8" rx="1.5" stroke="#b8924a" stroke-width="1.8"/>
+        </svg>
+        <span>La Maleta CMS</span>
+      </div>
+    </div>
+    <div class="tb-right">
+      <div id="lang-switcher-admin" class="lang-switcher-admin"></div>
+      <a class="tb-preview" id="preview-link" href="#" target="_blank">🌐 Ver sitio</a>
+      <span class="tb-badge" id="tb-badge"></span>
+      <button class="tb-btn red" onclick="doLogout()">Salir</button>
+    </div>
+  </div>
+
+  <!-- LAYOUT -->
+  <div class="cms-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="cms-sidebar">
+      <div class="sb-section">
+        <div class="sb-title">Contenido</div>
+        <button class="sb-btn" data-sec="dashboard"    onclick="showSection('dashboard')">🏠 Dashboard</button>
+        <button class="sb-btn" data-sec="contenido"   onclick="showSection('contenido')">📄 Contenido</button>
+        <button class="sb-btn" data-sec="destinos"     onclick="showSection('destinos')">✈️ Destinos</button>
+        <button class="sb-btn" data-sec="experiencias" onclick="showSection('experiencias')">⭐ Experiencias</button>
+        <button class="sb-btn" data-sec="blog"         onclick="showSection('blog')">📝 Blog</button>
+        <button class="sb-btn" data-sec="consultas"    onclick="showSection('consultas')">💬 Consultas</button>
+      </div>
+      <div class="sb-section">
+        <div class="sb-title">Sistema</div>
+        <button class="sb-btn" data-sec="settings" onclick="showSection('settings')">⚙️ Configuración</button>
+        <button class="sb-btn" data-sec="usuarios" id="btn-users" style="display:none" onclick="showSection('usuarios')">👥 Usuarios</button>
+      </div>
+      <div class="sb-sep" id="super-sep" style="display:none"></div>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="cms-main">
+      <div id="section-content">
+        <div class="loading"><div class="spinner"></div>Cargando...</div>
+      </div>
+    </main>
+
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script type="module" src="/src/admin.js"></script>
+</body>
+</html>
