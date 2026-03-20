@@ -289,18 +289,48 @@ window.eliminarDestino = async function(id, nombre) {
 };*/
 window.subirImgDestino = async (e) => {
   const file = e.target.files[0];
+  if (!file) return;
 
-  console.log("USER:", auth.currentUser);
+  try {
+    const url = await uploadImage(file);
 
-  const extension = file.name.split('.').pop();
-  const filePath = `destinos/${Date.now()}.${extension}`;
+    console.log("URL:", url);
 
-  console.log("PATH:", filePath);
+    // 👉 ACA está la clave
+    document.getElementById("d-img").value = url;
 
-  const url = await uploadImage(file);
+    // opcional preview
+    let prev = document.getElementById("d-img-preview");
+    if (!prev) {
+      prev = document.createElement("img");
+      prev.id = "d-img-preview";
+      prev.style = "width:100%;max-height:120px;object-fit:cover;border-radius:6px;margin-top:8px;";
+      document.getElementById("d-img").parentElement.appendChild(prev);
+    }
+    prev.src = url;
 
-  console.log("URL:", url);
+  } catch (err) {
+    console.error(err);
+  }
 };
+
+function setupImageUpload() {
+  const inputFile = document.getElementById("imagen-file");
+  const inputUrl  = document.getElementById("imagen");
+
+  if (!inputFile || !inputUrl) return;
+
+  inputFile.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const url = await uploadImage(file);
+
+    console.log("URL subida:", url);
+
+    inputUrl.value = url; // 🔥 clave
+  });
+}
 
 // ─── EXPERIENCIAS ──────────────────────────────────────────
 async function renderExperiencias() {
