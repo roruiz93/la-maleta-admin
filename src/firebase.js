@@ -16,25 +16,44 @@ import {
   deleteDoc,
   onSnapshot
 } from "firebase/firestore";
-import {
-  getStorage,
-  ref,
-  uploadBytes,
-  getDownloadURL
-} from "firebase/storage";
 import { firebaseConfig } from "./firebase-config";
 
-// Init
-const app       = initializeApp(firebaseConfig);
-export const auth    = getAuth(app);
-export const db      = getFirestore(app);
-export const storage = getStorage(app);
+// ─────────────────────────────
+// INIT
+// ─────────────────────────────
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+
+// ─────────────────────────────
+// CLOUDINARY (IMÁGENES)
+// ─────────────────────────────
+const CLOUD_NAME = "dkfjglodj";
+const UPLOAD_PRESET = "la-maleta-admin"; // tu preset
+
+export async function uploadImage(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", UPLOAD_PRESET);
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+    {
+      method: "POST",
+      body: formData
+    }
+  );
+
+  const data = await res.json();
+
+  // optimización automática
+  return data.secure_url.replace("/upload/", "/upload/w_800,q_auto/");
+}
 
 // ─────────────────────────────
 // AUTH
 // ─────────────────────────────
 export async function loginUser(email, password) {
-  console.log("hola")
   return signInWithEmailAndPassword(auth, email, password);
 }
 export async function logoutUser() {
@@ -56,13 +75,15 @@ export async function getAllUsers() {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 export async function createUser(email, password, name, role) {
-  // Create auth user
   const cred = await createUserWithEmailAndPassword(auth, email, password);
-  // Save profile in Firestore
+
   await setDoc(doc(db, "users", cred.user.uid), {
-    email, name, role,
+    email,
+    name,
+    role,
     createdAt: new Date().toISOString()
   });
+
   return cred.user;
 }
 export async function deleteUserProfile(uid) {
@@ -82,7 +103,6 @@ export async function loadContent() {
   const snap = await getDoc(doc(db, "site", "content"));
   return snap.exists() ? snap.data() : null;
 }
-// Real-time listener for content changes
 export function listenContent(callback) {
   return onSnapshot(doc(db, "site", "content"), snap => {
     if (snap.exists()) callback(snap.data());
@@ -109,10 +129,13 @@ export function listenColors(callback) {
 }
 
 // ─────────────────────────────
-// LANGUAGE preference (Firestore)
+// LANGUAGE (Firestore)
 // ─────────────────────────────
 export async function saveLanguage(lang) {
-  await setDoc(doc(db, "site", "settings"), { defaultLang: lang, updatedAt: new Date().toISOString() });
+  await setDoc(doc(db, "site", "settings"), {
+    defaultLang: lang,
+    updatedAt: new Date().toISOString()
+  });
 }
 export function listenLanguage(callback) {
   return onSnapshot(doc(db, "site", "settings"), snap => {
@@ -121,22 +144,23 @@ export function listenLanguage(callback) {
 }
 
 // ─────────────────────────────
-// IMAGES (Firebase Storage)
+// IMAGES (Firestore - URLs)
 // ─────────────────────────────
-export async function uploadImage(imageId, file) {
-  const storageRef = ref(storage, `site-images/${imageId}`);
-  await uploadBytes(storageRef, file);
-  const url = await getDownloadURL(storageRef);
-  // Save URL in Firestore
+export async function saveImageUrl(imageId, file) {
+  const url = await uploadImage(file);
+
   const snap = await getDoc(doc(db, "site", "images"));
   const existing = snap.exists() ? snap.data() : {};
+
   await setDoc(doc(db, "site", "images"), {
     ...existing,
     [imageId]: url,
     updatedAt: new Date().toISOString()
   });
+
   return url;
 }
+
 export async function loadImages() {
   const snap = await getDoc(doc(db, "site", "images"));
   return snap.exists() ? snap.data() : null;
@@ -152,45 +176,69 @@ export function listenImages(callback) {
 // ─────────────────────────────
 export async function getDestinos() {
   const snap = await getDocs(collection(db, "destinos"));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
-    .sort((a,b) => (a.orden||0) - (b.orden||0));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (a.orden || 0) - (b.orden || 0));
 }
+
 export async function getDestino(id) {
   const snap = await getDoc(doc(db, "destinos", id));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
+
+// 🔥 ESTE ES EL FIX
 export async function saveDestino(id, data) {
-  await setDoc(doc(db, "destinos", id), { ...data, updatedAt: new Date().toISOString() });
-}
-export async function deleteDestino(id) {
-  await deleteDoc(doc(db, "destinos", id));
-}
-export function listenDestinos(callback) {
-  return onSnapshot(collection(db, "destinos"), snap => {
-    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .sort((a,b) => (a.orden||0) - (b.orden||0));
-    callback(items);
+  let imagenUrl = data.imagen || "";
+
+  // 👉 si viene archivo nuevo
+  if (data.file) {
+    imagenUrl = await uploadImage(data.file);
+  }
+
+  await setDoc(doc(db, "destinos", id), {
+    ...data,
+    imagen: imagenUrl, // 👈 clave
+    updatedAt: new Date().toISOString()
   });
 }
 
+export async function deleteDestino(id) {
+  await deleteDoc(doc(db, "destinos", id));
+}
+
+export function listenDestinos(callback) {
+  return onSnapshot(collection(db, "destinos"), snap => {
+    const items = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.orden || 0) - (b.orden || 0));
+
+    console.log("🔥 DESTINOS:", items);
+    callback(items);
+  });
+}
 // ─────────────────────────────
 // EXPERIENCIAS (Firestore)
 // ─────────────────────────────
 export async function getExperiencias() {
   const snap = await getDocs(collection(db, "experiencias"));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
-    .sort((a,b) => (a.orden||0) - (b.orden||0));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (a.orden || 0) - (b.orden || 0));
 }
 export async function saveExperiencia(id, data) {
-  await setDoc(doc(db, "experiencias", id), { ...data, updatedAt: new Date().toISOString() });
+  await setDoc(doc(db, "experiencias", id), {
+    ...data,
+    updatedAt: new Date().toISOString()
+  });
 }
 export async function deleteExperiencia(id) {
   await deleteDoc(doc(db, "experiencias", id));
 }
 export function listenExperiencias(callback) {
   return onSnapshot(collection(db, "experiencias"), snap => {
-    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .sort((a,b) => (a.orden||0) - (b.orden||0));
+    const items = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.orden || 0) - (b.orden || 0));
     callback(items);
   });
 }
@@ -200,31 +248,36 @@ export function listenExperiencias(callback) {
 // ─────────────────────────────
 export async function getPosts(soloPublicados = true) {
   const snap = await getDocs(collection(db, "posts"));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
-    .filter(p => soloPublicados ? p.publicado : true)
-    .sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(p => (soloPublicados ? p.publicado : true))
+    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 }
 export async function getPost(id) {
   const snap = await getDoc(doc(db, "posts", id));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 export async function savePost(id, data) {
-  await setDoc(doc(db, "posts", id), { ...data, updatedAt: new Date().toISOString() });
+  await setDoc(doc(db, "posts", id), {
+    ...data,
+    updatedAt: new Date().toISOString()
+  });
 }
 export async function deletePost(id) {
   await deleteDoc(doc(db, "posts", id));
 }
 export function listenPosts(callback) {
   return onSnapshot(collection(db, "posts"), snap => {
-    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    const items = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
       .filter(p => p.publicado)
-      .sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+      .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
     callback(items);
   });
 }
 
 // ─────────────────────────────
-// CONSULTAS / CONTACTO (Firestore)
+// CONSULTAS (Firestore)
 // ─────────────────────────────
 export async function saveConsulta(data) {
   const id = `consulta_${Date.now()}`;
@@ -237,34 +290,30 @@ export async function saveConsulta(data) {
 }
 export async function getConsultas() {
   const snap = await getDocs(collection(db, "consultas"));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
-    .sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 }
 export async function marcarLeida(id) {
   await setDoc(doc(db, "consultas", id), { leida: true }, { merge: true });
 }
 
 // ─────────────────────────────
-// SETTINGS (WhatsApp, email, etc.)
+// SETTINGS
 // ─────────────────────────────
 export async function getSettings() {
   const snap = await getDoc(doc(db, "site", "settings"));
   return snap.exists() ? snap.data() : {};
 }
 export async function saveSettings(data) {
-  await setDoc(doc(db, "site", "settings"), { ...data, updatedAt: new Date().toISOString() }, { merge: true });
+  await setDoc(
+    doc(db, "site", "settings"),
+    { ...data, updatedAt: new Date().toISOString() },
+    { merge: true }
+  );
 }
 export function listenSettings(callback) {
   return onSnapshot(doc(db, "site", "settings"), snap => {
     if (snap.exists()) callback(snap.data());
   });
-}
-
-// ─────────────────────────────
-// UPLOAD IMAGE (genérico para destinos/blog)
-// ─────────────────────────────
-export async function uploadImageGeneric(path, file) {
-  const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, file);
-  return getDownloadURL(storageRef);
 }

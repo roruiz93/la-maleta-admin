@@ -12,10 +12,10 @@ import {
   getDestinos, saveDestino, deleteDestino,
   getExperiencias, saveExperiencia, deleteExperiencia,
   getPosts, getPost, savePost, deletePost,
-  getConsultas, marcarLeida,
-  uploadImageGeneric
+  getConsultas, marcarLeida,uploadImage 
 } from "./firebase.js";
 import { translations, langMeta } from "./i18n.js";
+ 
 import { auth } from "./firebase-config";
 const WEB_URL = import.meta.env.VITE_WEB_URL || "https://lamaleta.vercel.app";
 
@@ -280,7 +280,7 @@ window.eliminarDestino = async function(id, nombre) {
   const file = e.target.files[0]; if(!file) return;
   showToast("📤 Subiendo imagen...", false);
   try {
-    const url = await uploadImageGeneric(`destinos/${Date.now()}_${file.name}`, file);
+    const url = await uploadImage(`destinos/${Date.now()}_${file.name}`, file);
     document.getElementById(inputId).value = url;
     const prev = document.getElementById("d-img-preview");
     if(prev) prev.src = url;
@@ -297,7 +297,7 @@ window.subirImgDestino = async (e) => {
 
   console.log("PATH:", filePath);
 
-  const url = await uploadImageGeneric(filePath, file);
+  const url = await uploadImage(file);
 
   console.log("URL:", url);
 };
@@ -393,7 +393,7 @@ window.guardarExp = async function(id) {
 
 window.subirImgExp = async function(e) {
   const file = e.target.files[0]; if(!file) return;
-  const url = await uploadImageGeneric(`experiencias/${Date.now()}_${file.name}`, file);
+  const url = await uploadImage( file);
   document.getElementById("e-img").value = url;
   showToast("📷 Imagen subida");
 };
@@ -507,7 +507,7 @@ window.guardarPost = async function(id) {
 
 window.subirImgPost = async function(e) {
   const file = e.target.files[0]; if(!file) return;
-  const url = await uploadImageGeneric(`blog/${Date.now()}_${file.name}`, file);
+  const url = await uploadImage(file);
   document.getElementById("p-img").value = url;
   showToast("📷 Imagen subida");
 };
