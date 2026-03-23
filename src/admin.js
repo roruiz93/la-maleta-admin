@@ -12,10 +12,10 @@ import {
   getDestinos, saveDestino, deleteDestino,
   getExperiencias, saveExperiencia, deleteExperiencia,
   getPosts, getPost, savePost, deletePost,
-  getConsultas, marcarLeida,uploadImage 
+  getConsultas, marcarLeida, uploadImage
 } from "./firebase.js";
 import { translations, langMeta } from "./i18n.js";
- 
+
 import { auth } from "./firebase-config";
 const WEB_URL = import.meta.env.VITE_WEB_URL || "https://lamaleta.vercel.app";
 
@@ -24,21 +24,13 @@ let CU = null, currentLang = localStorage.getItem("lm_lang") || "es", remoteCont
 let currentSection = "dashboard";
 
 // ─── Auth ─────────────────────────────────────────────────
- onAuthChange(async (fu) => {
+onAuthChange(async (fu) => {
   if (fu) {
     const p = await getUserProfile(fu.uid);
-    console.log(p)
-    if (!p) {
-      console.log("No existe perfil en Firestore");
-      return logoutUser();
-    }
-    if (p.role !== "admin" && p.role !== "superadmin") {
-      console.log("No tiene permisos");
-      return logoutUser();
-    }
+    if (!p) { console.log("No existe perfil en Firestore"); return logoutUser(); }
+    if (p.role !== "admin" && p.role !== "superadmin") { console.log("No tiene permisos"); return logoutUser(); }
     CU = { ...p, uid: fu.uid };
     showCMS();
-
   } else {
     showLogin();
   }
@@ -51,21 +43,19 @@ window.doLogin = async function() {
   const err   = document.getElementById("lerr");
   err.textContent = "";
   const block = getBlockStatus();
-  console.log(import.meta.env.VITE_FIREBASE_PROJECT_ID)
-  console.log(email,pass)
   if (block.blocked) { err.textContent = `Bloqueado ${block.remaining} min. por intentos fallidos.`; return; }
   if (!email || !pass) { err.textContent = "Ingresá email y contraseña"; return; }
   btn.textContent = "Ingresando..."; btn.disabled = true;
   try {
-    
     await loginUser(email, pass);
     showCMS();
-    
     clearAttempts();
-  }catch (error) {
-  console.log("ERROR FIREBASE:", error.code)
-  console.log("MENSAJE:", error.message)
-}
+  } catch (error) {
+    console.log("ERROR FIREBASE:", error.code, error.message);
+    err.textContent = "Email o contraseña incorrectos";
+    btn.textContent = "Ingresar"; btn.disabled = false;
+    recordFailedAttempt();
+  }
 };
 window.doLogout = async () => { await logoutUser(); };
 
@@ -92,12 +82,13 @@ function setupCMS() {
   document.getElementById("super-sep").style.display  = isSA ? "block" : "none";
   document.getElementById("preview-link").href = WEB_URL;
   buildLangSwitchers();
-  listenContent(d => { if(d) remoteContent = d; });
+  // FIX: listener centralizado de contenido — actualiza remoteContent global
+  listenContent(d => { if (d) remoteContent = d; });
   listenColors(syncColorPickers);
   showSection("dashboard");
 }
 
-// ─── Navegación de secciones ──────────────────────────────
+// ─── Navegación ───────────────────────────────────────────
 window.showSection = function(sec) {
   currentSection = sec;
   document.querySelectorAll(".sb-btn").forEach(b => b.classList.remove("active"));
@@ -106,6 +97,7 @@ window.showSection = function(sec) {
   const content = document.getElementById("section-content");
   const loaders = {
     dashboard:    renderDashboard,
+    contenido:    renderContenido,
     destinos:     renderDestinos,
     experiencias: renderExperiencias,
     blog:         renderBlog,
@@ -127,27 +119,19 @@ async function renderDashboard() {
     <div class="sec-header"><h2>Dashboard</h2><p>Resumen del sitio</p></div>
     <div class="dash-grid">
       <div class="dash-card" onclick="showSection('destinos')">
-        <div class="dash-icon">✈️</div>
-        <div class="dash-num">${destinos.length}</div>
-        <div class="dash-lbl">Destinos</div>
+        <div class="dash-icon">✈️</div><div class="dash-num">${destinos.length}</div><div class="dash-lbl">Destinos</div>
       </div>
       <div class="dash-card" onclick="showSection('blog')">
-        <div class="dash-icon">📝</div>
-        <div class="dash-num">${posts.length}</div>
-        <div class="dash-lbl">Posts del Blog</div>
+        <div class="dash-icon">📝</div><div class="dash-num">${posts.length}</div><div class="dash-lbl">Posts del Blog</div>
       </div>
       <div class="dash-card ${noLeidas>0?'dash-alert':''}" onclick="showSection('consultas')">
-        <div class="dash-icon">💬</div>
-        <div class="dash-num">${noLeidas}</div>
-        <div class="dash-lbl">Consultas sin leer</div>
+        <div class="dash-icon">💬</div><div class="dash-num">${noLeidas}</div><div class="dash-lbl">Consultas sin leer</div>
       </div>
       <div class="dash-card" onclick="showSection('settings')">
-        <div class="dash-icon">⚙️</div>
-        <div class="dash-num">—</div>
-        <div class="dash-lbl">Configuración</div>
+        <div class="dash-icon">⚙️</div><div class="dash-num">—</div><div class="dash-lbl">Configuración</div>
       </div>
     </div>
-    <div class="sec-tip">💡 Tip: Usá el switcher de idioma arriba para editar el contenido en cada idioma por separado.</div>
+    <div class="sec-tip">💡 Tip: Usá la sección "Contenido" para editar los textos del sitio en cada idioma.</div>
     <div style="margin-top:32px;">
       <h3 style="font-family:'Playfair Display',serif;font-size:20px;margin-bottom:16px;">Últimas consultas</h3>
       ${consultas.slice(0,5).map(c=>`
@@ -186,7 +170,6 @@ async function renderDestinos() {
           </div>
         </div>`).join("") : '<div class="empty-state-admin">No hay destinos. ¡Creá el primero!</div>'}
     </div>
-    <!-- Modal -->
     <div id="modal-destino" class="modal" style="display:none"></div>`;
 }
 
@@ -207,23 +190,30 @@ window.abrirModalDestino = function(d={}) {
           <div class="form-field"><label>Precio (USD)</label><input id="d-precio" type="number" value="${d.precio||''}" placeholder="1200"></div>
           <div class="form-field"><label>Duración</label><input id="d-dur" value="${d.duracion||''}" placeholder="Ej: 7 días"></div>
         </div>
-        <div class="form-field"><label>Descripción corta (para la grilla)</label><input id="d-descCorta" value="${d.descripcionCorta||''}" placeholder="Breve descripción para la tarjeta"></div>
-        <div class="form-field"><label>Descripción completa</label><textarea id="d-desc" rows="4" placeholder="Descripción detallada del destino...">${d.descripcion||''}</textarea></div>
+        <div class="form-field"><label>Descripción corta</label><input id="d-descCorta" value="${d.descripcionCorta||''}" placeholder="Breve descripción para la tarjeta"></div>
+        <div class="form-field"><label>Descripción completa</label><textarea id="d-desc" rows="4" placeholder="Descripción detallada...">${d.descripcion||''}</textarea></div>
         <div class="form-field">
-          <label>Imagen principal</label>
+          <label>Imágenes del destino</label>
           <div style="display:flex;gap:10px;align-items:center;">
-            <input id="d-img" value="${d.imagen||''}" placeholder="URL de imagen o subí una" style="flex:1">
-            <input type="file" id="d-img-file" accept="image/*" style="display:none" onchange="subirImgDestino(event,'d-img')">
-            <button class="btn-upload" onclick="document.getElementById('d-img-file').click()">📷 Subir</button>
+            <input type="file" id="d-img-file" multiple accept="image/*" style="display:none" onchange="subirImgDestino(event)">
+            <button class="btn-upload" onclick="document.getElementById('d-img-file').click()">📷 Subir imágenes</button>
           </div>
-          ${d.imagen?`<img src="${d.imagen}" style="width:100%;max-height:120px;object-fit:cover;border-radius:6px;margin-top:8px;" id="d-img-preview">`:``}
+          <div id="d-img-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+            ${(d.imagenes&&d.imagenes.length>0) ? d.imagenes.map((img,index)=>`
+              <div class="img-container" style="position:relative;width:80px;height:80px;border-radius:6px;overflow:hidden;cursor:pointer;">
+                <img src="${img}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:${d.imagen===img?'3px solid #b8924a':'none'}">
+                <span style="position:absolute;top:2px;right:2px;background:red;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-weight:bold;cursor:pointer;font-size:11px;" onclick="removeImage(${index})">x</span>
+                <span style="position:absolute;bottom:2px;left:2px;background:#b8924a;color:white;border-radius:4px;padding:2px 4px;font-size:9px;cursor:pointer;" onclick="setPrincipal(${index})">Principal</span>
+              </div>`).join("")
+            : (d.imagen ? `<div style="position:relative;width:80px;height:80px;border-radius:6px;overflow:hidden;"><img src="${d.imagen}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;"></div>` : "")}
+          </div>
         </div>
         <div class="form-field">
           <label>¿Qué incluye? (una por línea)</label>
-          <textarea id="d-incluye" rows="4" placeholder="Vuelos internacionales&#10;Hotel 4 estrellas&#10;Traslados&#10;Guía local">${(d.incluye||[]).join('\n')}</textarea>
+          <textarea id="d-incluye" rows="4" placeholder="Vuelos internacionales&#10;Hotel 4 estrellas&#10;Traslados">${(d.incluye||[]).join('\n')}</textarea>
         </div>
         <div class="form-row-admin">
-          <div class="form-field"><label>Orden (número)</label><input id="d-orden" type="number" value="${d.orden||0}"></div>
+          <div class="form-field"><label>Orden</label><input id="d-orden" type="number" value="${d.orden||0}"></div>
           <div class="form-field"><label>Estado</label>
             <select id="d-activo">
               <option value="true"  ${d.activo!==false?'selected':''}>Activo (visible)</option>
@@ -240,25 +230,75 @@ window.abrirModalDestino = function(d={}) {
     </div>`;
 };
 
-window.editarDestino = async function(id) {
-  const d = (await getDestinos()).find(x=>x.id===id);
-  if(d) abrirModalDestino(d);
+let imagenesArray = [];
+let imagenPrincipal = null;
+
+function renderImagenes() {
+  const container = document.getElementById("d-img-preview");
+  if (!container) return;
+  container.innerHTML = "";
+  const ordenadas = getImagenesOrdenadas();
+  ordenadas.forEach((src) => {
+    const div = document.createElement("div");
+    div.style.cssText = `position:relative;width:100px;height:100px;margin:5px;border-radius:6px;overflow:hidden;cursor:pointer;border:${src===imagenPrincipal?"3px solid #b8924a":"2px solid transparent"};`;
+    const img = document.createElement("img");
+    img.src = src;
+    img.style.cssText = "width:100%;height:100%;object-fit:cover;";
+    div.appendChild(img);
+    const removeBtn = document.createElement("span");
+    removeBtn.textContent = "×";
+    removeBtn.style.cssText = "position:absolute;top:2px;right:2px;background:red;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-weight:bold;cursor:pointer;font-size:13px;";
+    removeBtn.onclick = (e) => {
+      e.stopPropagation();
+      imagenesArray = imagenesArray.filter(i => i !== src);
+      if (imagenPrincipal === src) imagenPrincipal = imagenesArray[0] || null;
+      renderImagenes();
+    };
+    div.appendChild(removeBtn);
+    const badge = document.createElement("span");
+    badge.textContent = src === imagenPrincipal ? "✓ Principal" : "Principal";
+    badge.style.cssText = `position:absolute;bottom:2px;left:2px;background:${src===imagenPrincipal?"#27ae60":"#b8924a"};color:white;border-radius:4px;padding:2px 5px;font-size:9px;cursor:pointer;`;
+    badge.onclick = () => { imagenPrincipal = src; renderImagenes(); };
+    div.appendChild(badge);
+    container.appendChild(div);
+  });
+}
+
+function getImagenesOrdenadas() {
+  if (!imagenPrincipal) return [...imagenesArray];
+  return [imagenPrincipal, ...imagenesArray.filter(i => i !== imagenPrincipal)];
+}
+
+window.subirImgDestino = async (e) => {
+  const files = e.target.files;
+  if (!files || files.length === 0) return;
+  showToast("⏳ Subiendo imágenes...", false);
+  for (let file of files) {
+    try {
+      const url = await uploadImage(file);
+      imagenesArray.push(url);
+      if (!imagenPrincipal) imagenPrincipal = url;
+      renderImagenes();
+    } catch (err) { console.error(err); }
+  }
+  showToast("📷 Imágenes subidas");
 };
 
 window.guardarDestino = async function(id) {
   const nombre = document.getElementById("d-nombre").value.trim();
-  if(!nombre) { document.getElementById("modal-msg").textContent="El nombre es requerido"; return; }
+  if (!nombre) { document.getElementById("modal-msg").textContent = "El nombre es requerido"; return; }
   const data = {
     nombre,
-    categoria:       document.getElementById("d-cat").value.trim(),
-    precio:          parseFloat(document.getElementById("d-precio").value)||0,
-    duracion:        document.getElementById("d-dur").value.trim(),
-    descripcionCorta:document.getElementById("d-descCorta").value.trim(),
-    descripcion:     document.getElementById("d-desc").value.trim(),
-    imagen:          document.getElementById("d-img").value.trim(),
-    incluye:         document.getElementById("d-incluye").value.split("\n").map(s=>s.trim()).filter(Boolean),
-    orden:           parseInt(document.getElementById("d-orden").value)||0,
-    activo:          document.getElementById("d-activo").value === "true",
+    categoria:        document.getElementById("d-cat").value.trim(),
+    precio:           parseFloat(document.getElementById("d-precio").value) || 0,
+    duracion:         document.getElementById("d-dur").value.trim(),
+    descripcionCorta: document.getElementById("d-descCorta").value.trim(),
+    descripcion:      document.getElementById("d-desc").value.trim(),
+    incluye:          document.getElementById("d-incluye").value.split("\n").map(s=>s.trim()).filter(Boolean),
+    orden:            parseInt(document.getElementById("d-orden").value) || 0,
+    activo:           document.getElementById("d-activo").value === "true",
+    imagenes:         getImagenesOrdenadas(),
+    imagen:           imagenPrincipal || imagenesArray[0] || "/img/default.jpg",
   };
   const newId = id || `destino_${Date.now()}`;
   try {
@@ -266,71 +306,25 @@ window.guardarDestino = async function(id) {
     cerrarModal("modal-destino");
     showToast("✅ Destino guardado");
     renderDestinos();
-  } catch(e) { document.getElementById("modal-msg").textContent = "Error: " + e.message; }
+  } catch (e) { document.getElementById("modal-msg").textContent = "Error: " + e.message; }
+};
+
+window.editarDestino = async function(id) {
+  const d = (await getDestinos()).find(x => x.id === id);
+  if (d) {
+    abrirModalDestino(d);
+    imagenesArray = [...(d.imagenes || [])];
+    imagenPrincipal = d.imagen || null;
+    renderImagenes();
+  }
 };
 
 window.eliminarDestino = async function(id, nombre) {
-  if(!confirm(`¿Eliminar "${nombre}"?`)) return;
+  if (!confirm(`¿Eliminar "${nombre}"?`)) return;
   await deleteDestino(id);
   showToast("🗑 Destino eliminado");
   renderDestinos();
 };
-
-/*window.subirImgDestino = async function(e, inputId) {
-  const file = e.target.files[0]; if(!file) return;
-  showToast("📤 Subiendo imagen...", false);
-  try {
-    const url = await uploadImage(`destinos/${Date.now()}_${file.name}`, file);
-    document.getElementById(inputId).value = url;
-    const prev = document.getElementById("d-img-preview");
-    if(prev) prev.src = url;
-    showToast("📷 Imagen subida");
-  } catch(err) { showToast("❌ Error al subir: " + err.message); }
-};*/
-window.subirImgDestino = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  try {
-    const url = await uploadImage(file);
-
-    console.log("URL:", url);
-
-    // 👉 ACA está la clave
-    document.getElementById("d-img").value = url;
-
-    // opcional preview
-    let prev = document.getElementById("d-img-preview");
-    if (!prev) {
-      prev = document.createElement("img");
-      prev.id = "d-img-preview";
-      prev.style = "width:100%;max-height:120px;object-fit:cover;border-radius:6px;margin-top:8px;";
-      document.getElementById("d-img").parentElement.appendChild(prev);
-    }
-    prev.src = url;
-
-  } catch (err) {
-    console.error(err);
-  }
-};
-
-function setupImageUpload() {
-  const inputFile = document.getElementById("imagen-file");
-  const inputUrl  = document.getElementById("imagen");
-
-  if (!inputFile || !inputUrl) return;
-
-  inputFile.addEventListener("change", async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const url = await uploadImage(file);
-
-    console.log("URL subida:", url);
-
-    inputUrl.value = url; // 🔥 clave
-  });
-}
 
 // ─── EXPERIENCIAS ──────────────────────────────────────────
 async function renderExperiencias() {
@@ -344,10 +338,7 @@ async function renderExperiencias() {
       ${items.length ? items.map(e=>`
         <div class="item-row">
           <img src="${e.imagen||'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=100&q=60'}" class="item-thumb" alt="${e.nombre}">
-          <div class="item-info">
-            <strong>${e.nombre}</strong>
-            <span>${e.categoria||''}</span>
-          </div>
+          <div class="item-info"><strong>${e.nombre}</strong><span>${e.categoria||''}</span></div>
           <div class="item-actions">
             <span class="badge-status ${e.activo!==false?'activo':'inactivo'}">${e.activo!==false?'Activo':'Oculto'}</span>
             <button class="btn-edit" onclick="editarExp('${e.id}')">✏️ Editar</button>
@@ -366,7 +357,7 @@ window.abrirModalExp = function(e={}) {
       <div class="modal-body">
         <div class="form-row-admin">
           <div class="form-field"><label>Nombre *</label><input id="e-nombre" value="${e.nombre||''}" placeholder="Ej: Trekking en Patagonia"></div>
-          <div class="form-field"><label>Categoría / Tipo</label><input id="e-cat" value="${e.categoria||''}" placeholder="Ej: Aventura"></div>
+          <div class="form-field"><label>Categoría</label><input id="e-cat" value="${e.categoria||''}" placeholder="Ej: Aventura"></div>
         </div>
         <div class="form-field"><label>Descripción</label><textarea id="e-desc" rows="3">${e.descripcion||''}</textarea></div>
         <div class="form-field">
@@ -406,11 +397,11 @@ window.guardarExp = async function(id) {
   if(!nombre){ document.getElementById("modal-exp-msg").textContent="Nombre requerido"; return; }
   const data = {
     nombre,
-    categoria: document.getElementById("e-cat").value.trim(),
+    categoria:   document.getElementById("e-cat").value.trim(),
     descripcion: document.getElementById("e-desc").value.trim(),
-    imagen: document.getElementById("e-img").value.trim(),
-    orden: parseInt(document.getElementById("e-orden").value)||0,
-    activo: document.getElementById("e-activo").value === "true",
+    imagen:      document.getElementById("e-img").value.trim(),
+    orden:       parseInt(document.getElementById("e-orden").value)||0,
+    activo:      document.getElementById("e-activo").value === "true",
   };
   const newId = id || `exp_${Date.now()}`;
   try {
@@ -423,7 +414,7 @@ window.guardarExp = async function(id) {
 
 window.subirImgExp = async function(e) {
   const file = e.target.files[0]; if(!file) return;
-  const url = await uploadImage( file);
+  const url = await uploadImage(file);
   document.getElementById("e-img").value = url;
   showToast("📷 Imagen subida");
 };
@@ -471,7 +462,7 @@ window.abrirModalPost = function(p={}) {
           <div class="form-field"><label>Categoría</label><input id="p-cat" value="${p.categoria||''}" placeholder="Ej: Guías de viaje"></div>
           <div class="form-field"><label>Autor</label><input id="p-autor" value="${p.autor||CU.name}" placeholder="Nombre del autor"></div>
         </div>
-        <div class="form-field"><label>Resumen / Extracto</label><textarea id="p-resumen" rows="2" placeholder="Breve descripción para la lista del blog...">${p.resumen||''}</textarea></div>
+        <div class="form-field"><label>Resumen / Extracto</label><textarea id="p-resumen" rows="2" placeholder="Breve descripción...">${p.resumen||''}</textarea></div>
         <div class="form-field">
           <label>Imagen de portada</label>
           <div style="display:flex;gap:10px;align-items:center;">
@@ -488,10 +479,10 @@ window.abrirModalPost = function(p={}) {
             <button type="button" onclick="insertTag('h2')">H2</button>
             <button type="button" onclick="insertTag('p')">¶</button>
           </div>
-          <textarea id="p-contenido" rows="12" placeholder="<h2>Introducción</h2>\n<p>Texto del artículo...</p>">${p.contenido||''}</textarea>
+          <textarea id="p-contenido" rows="12" placeholder="<h2>Introducción</h2>...">${p.contenido||''}</textarea>
         </div>
         <div class="form-row-admin">
-          <div class="form-field"><label>Fecha</label><input id="p-fecha" type="date" value="${p.fecha ? p.fecha.slice(0,10) : new Date().toISOString().slice(0,10)}"></div>
+          <div class="form-field"><label>Fecha</label><input id="p-fecha" type="date" value="${p.fecha?p.fecha.slice(0,10):new Date().toISOString().slice(0,10)}"></div>
           <div class="form-field"><label>Estado</label>
             <select id="p-pub">
               <option value="true"  ${p.publicado?'selected':''}>Publicado</option>
@@ -509,8 +500,7 @@ window.abrirModalPost = function(p={}) {
 };
 
 window.editarPost = async function(id) {
-  const p = await getPost(id);
-  if(p) abrirModalPost(p);
+  const p = await getPost(id); if(p) abrirModalPost(p);
 };
 
 window.guardarPost = async function(id) {
@@ -548,10 +538,7 @@ window.eliminarPost = async function(id, titulo) {
   showToast("🗑 Post eliminado"); renderBlog();
 };
 
-window.formatText = function(cmd) {
-  document.getElementById("p-contenido").focus();
-  document.execCommand(cmd);
-};
+window.formatText = function(cmd) { document.getElementById("p-contenido").focus(); document.execCommand(cmd); };
 window.insertTag = function(tag) {
   const ta = document.getElementById("p-contenido");
   const sel = ta.value.substring(ta.selectionStart, ta.selectionEnd);
@@ -607,7 +594,6 @@ async function renderSettings() {
   document.getElementById("section-content").innerHTML = `
     <div class="sec-header"><h2>Configuración del sitio</h2></div>
     <div class="settings-grid">
-
       <div class="settings-card">
         <div class="settings-card-title">📱 WhatsApp</div>
         <div class="form-field"><label>Número (sin + ni espacios)</label>
@@ -615,18 +601,16 @@ async function renderSettings() {
           <span class="field-hint">Formato: código país + área + número. Ej: 5491112345678</span>
         </div>
         <div class="form-field"><label>Mensaje por defecto</label>
-          <input id="s-wa-msg" value="${s.whatsappMsg||'Hola, quisiera información sobre sus viajes'}" placeholder="Mensaje de bienvenida en WhatsApp">
+          <input id="s-wa-msg" value="${s.whatsappMsg||'Hola, quisiera información sobre sus viajes'}">
         </div>
       </div>
-
       <div class="settings-card">
         <div class="settings-card-title">📬 Datos de contacto</div>
-        <div class="form-field"><label>Teléfono visible en el sitio</label><input id="s-tel" value="${s.tel||''}" placeholder="+54 9 11 0000-0000"></div>
-        <div class="form-field"><label>Email visible en el sitio</label><input id="s-email" value="${s.email||''}" placeholder="info@lamaleta.com"></div>
+        <div class="form-field"><label>Teléfono</label><input id="s-tel" value="${s.tel||''}" placeholder="+54 9 11 0000-0000"></div>
+        <div class="form-field"><label>Email</label><input id="s-email" value="${s.email||''}" placeholder="info@lamaleta.com"></div>
         <div class="form-field"><label>Dirección</label><input id="s-addr" value="${s.addr||''}" placeholder="Buenos Aires, Argentina"></div>
-        <div class="form-field"><label>Horario de atención</label><input id="s-hours" value="${s.hours||''}" placeholder="Lun–Vie 9:00–18:00"></div>
+        <div class="form-field"><label>Horario</label><input id="s-hours" value="${s.hours||''}" placeholder="Lun–Vie 9:00–18:00"></div>
       </div>
-
       <div class="settings-card">
         <div class="settings-card-title">🎨 Colores del sitio</div>
         <div class="cp-row"><label>Dorado (acento)</label><input type="color" id="cp-gold"  value="${s.gold||'#b8924a'}" oninput="previewColor('--gold',this.value)"></div>
@@ -635,7 +619,6 @@ async function renderSettings() {
         <div class="cp-row"><label>Color oscuro</label>    <input type="color" id="cp-pri"   value="${s.primary||'#2c2416'}" oninput="previewColor('--primary',this.value)"></div>
         <div class="cp-row"><label>Fondo cards</label>     <input type="color" id="cp-card"  value="${s.cardBg||'#faf7f3'}" oninput="previewColor('--card-bg',this.value)"></div>
       </div>
-
       <div class="settings-card">
         <div class="settings-card-title">🌐 Idioma por defecto</div>
         <div class="form-field"><label>Idioma que ven los visitantes al entrar</label>
@@ -646,7 +629,6 @@ async function renderSettings() {
           </select>
         </div>
       </div>
-
     </div>
     <div style="margin-top:24px;">
       <button class="btn-primary" onclick="guardarSettings()" style="padding:14px 32px;font-size:15px;">💾 Guardar toda la configuración</button>
@@ -654,9 +636,7 @@ async function renderSettings() {
     <div id="settings-msg" style="margin-top:12px;font-size:14px;"></div>`;
 }
 
-window.previewColor = function(varName, val) {
-  document.documentElement.style.setProperty(varName, val);
-};
+window.previewColor = function(varName, val) { document.documentElement.style.setProperty(varName, val); };
 
 window.guardarSettings = async function() {
   const data = {
@@ -667,20 +647,18 @@ window.guardarSettings = async function() {
     addr:        document.getElementById("s-addr").value.trim(),
     hours:       document.getElementById("s-hours").value.trim(),
     defaultLang: document.getElementById("s-lang").value,
-    gold:   document.getElementById("cp-gold").value,
-    bg:     document.getElementById("cp-bg").value,
-    text:   document.getElementById("cp-text").value,
-    primary:document.getElementById("cp-pri").value,
-    cardBg: document.getElementById("cp-card").value,
+    gold:    document.getElementById("cp-gold").value,
+    bg:      document.getElementById("cp-bg").value,
+    text:    document.getElementById("cp-text").value,
+    primary: document.getElementById("cp-pri").value,
+    cardBg:  document.getElementById("cp-card").value,
   };
   try {
     await saveSettings(data);
     document.getElementById("settings-msg").textContent = "✅ Configuración guardada correctamente";
     showToast("✅ Configuración guardada");
     setTimeout(()=>document.getElementById("settings-msg").textContent="", 3000);
-  } catch(e) {
-    document.getElementById("settings-msg").textContent = "❌ Error: " + e.message;
-  }
+  } catch(e) { document.getElementById("settings-msg").textContent = "❌ Error: " + e.message; }
 };
 
 // ─── USUARIOS ─────────────────────────────────────────────
@@ -707,10 +685,7 @@ async function renderUsuarios() {
         <div class="form-field"><label>Nombre</label><input type="text" id="nu-n" placeholder="Nombre Apellido"></div>
         <div class="form-field"><label>Contraseña</label><input type="password" id="nu-p" placeholder="Mín. 8 caracteres"></div>
         <div class="form-field"><label>Rol</label>
-          <select id="nu-r">
-            <option value="editor">Editor</option>
-            <option value="admin">Admin</option>
-          </select>
+          <select id="nu-r"><option value="editor">Editor</option><option value="admin">Admin</option></select>
         </div>
       </div>
       <button class="btn-primary" onclick="addUser()" style="margin-top:12px;">Crear Usuario</button>
@@ -742,7 +717,7 @@ window.delUser = async function(uid) {
   showToast("🗑 Usuario eliminado"); renderUsuarios();
 };
 
-// ─── Idioma (switchers en top bar) ────────────────────────
+// ─── Idioma topbar ────────────────────────────────────────
 function buildLangSwitchers() {
   const wrap = document.getElementById("lang-switcher-admin");
   if(wrap) wrap.innerHTML = Object.entries(langMeta).map(([code,meta])=>`
@@ -753,6 +728,10 @@ window.switchLang = function(code) {
   currentLang = code;
   localStorage.setItem("lm_lang", code);
   buildLangSwitchers();
+  // Si el editor de contenido está abierto, sincronizar
+  if (currentSection === "contenido" && typeof window._syncContenidoLang === "function") {
+    window._syncContenidoLang(code);
+  }
   showToast(`🌐 Editando en ${langMeta[code].label}`);
 };
 
@@ -764,10 +743,7 @@ function syncColorPickers(data) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────
-window.cerrarModal = function(id) {
-  const el = document.getElementById(id);
-  if(el) el.style.display = "none";
-};
+window.cerrarModal = function(id) { const el=document.getElementById(id); if(el) el.style.display="none"; };
 
 function formatFecha(f) {
   if(!f) return '';
@@ -783,177 +759,266 @@ function showToast(msg, autoHide=true) {
   if(autoHide) toastTimer = setTimeout(()=>t.classList.remove("show"), 3000);
 }
 
-// ─── CONTENIDO DEL SITIO ──────────────────────────────────
-// Agregar botón en sidebar y función de edición
-window.showSection_contenido = function() {
-  showSection("contenido");
+// ══════════════════════════════════════════════════════════
+// ─── CONTENIDO DEL SITIO — versión corregida ──────────────
+// ══════════════════════════════════════════════════════════
+
+// Secciones y campos definidos fuera de la función (no se recrean en cada render)
+const CONTENIDO_SECCIONES = [
+  {
+    titulo: "🏠 Página de Inicio",
+    campos: [
+      { key: "hero-h1",       label: "Título principal del Hero",           tipo: "input"    },
+      { key: "hero-sub",      label: "Subtítulo del Hero",                  tipo: "input"    },
+      { key: "hero-btn1",     label: "Botón 1 Hero",                        tipo: "input"    },
+      { key: "hero-btn2",     label: "Botón 2 Hero",                        tipo: "input"    },
+      { key: "dest-title",    label: "Título sección Destinos",             tipo: "input"    },
+      { key: "d1-name",       label: "Destino 1 — Nombre",                 tipo: "input"    },
+      { key: "d1-desc",       label: "Destino 1 — Descripción",            tipo: "input"    },
+      { key: "d2-name",       label: "Destino 2 — Nombre",                 tipo: "input"    },
+      { key: "d2-desc",       label: "Destino 2 — Descripción",            tipo: "input"    },
+      { key: "d3-name",       label: "Destino 3 — Nombre",                 tipo: "input"    },
+      { key: "d3-desc",       label: "Destino 3 — Descripción",            tipo: "input"    },
+      { key: "d4-name",       label: "Destino 4 — Nombre",                 tipo: "input"    },
+      { key: "d4-desc",       label: "Destino 4 — Descripción",            tipo: "input"    },
+      { key: "ver-todos",     label: "Botón \"Ver todos los viajes\"",      tipo: "input"    },
+      { key: "pq-title",      label: "Título \"¿Por qué elegirnos?\"",     tipo: "input"    },
+      { key: "pq1",           label: "Razón 1",                            tipo: "input"    },
+      { key: "pq2",           label: "Razón 2",                            tipo: "input"    },
+      { key: "pq3",           label: "Razón 3",                            tipo: "input"    },
+      { key: "pq4",           label: "Razón 4",                            tipo: "input"    },
+      { key: "test-title",    label: "Título sección Testimonios",          tipo: "input"    },
+      { key: "t1-name",       label: "Testimonio 1 — Nombre",              tipo: "input"    },
+      { key: "t1-text",       label: "Testimonio 1 — Texto",               tipo: "textarea" },
+      { key: "t2-name",       label: "Testimonio 2 — Nombre",              tipo: "input"    },
+      { key: "t2-text",       label: "Testimonio 2 — Texto",               tipo: "textarea" },
+      { key: "t3-name",       label: "Testimonio 3 — Nombre",              tipo: "input"    },
+      { key: "t3-text",       label: "Testimonio 3 — Texto",               tipo: "textarea" },
+      { key: "cta-h",         label: "CTA — Título",                       tipo: "input"    },
+      { key: "cta-p",         label: "CTA — Texto",                        tipo: "textarea" },
+      { key: "cta-btn",       label: "CTA — Botón",                        tipo: "input"    },
+      { key: "footer-slogan", label: "Footer — Slogan",                    tipo: "input"    },
+    ]
+  },
+  {
+    titulo: "👥 Página Nosotros",
+    campos: [
+      { key: "nos-hero-h1",    label: "Hero — Título",                     tipo: "input"    },
+      { key: "nos-hero-p",     label: "Hero — Subtítulo",                  tipo: "input"    },
+      { key: "nos-titulo",     label: "Título sección intro",              tipo: "input"    },
+      { key: "nos-p1",         label: "Párrafo 1",                         tipo: "textarea" },
+      { key: "nos-p2",         label: "Párrafo 2",                         tipo: "textarea" },
+      { key: "nos-p3",         label: "Párrafo 3",                         tipo: "textarea" },
+      { key: "nos-btn",        label: "Botón Contacto",                    tipo: "input"    },
+      { key: "stat1",          label: "Estadística 1 — Número",            tipo: "input"    },
+      { key: "stat1-lbl",      label: "Estadística 1 — Etiqueta",          tipo: "input"    },
+      { key: "stat2",          label: "Estadística 2 — Número",            tipo: "input"    },
+      { key: "stat2-lbl",      label: "Estadística 2 — Etiqueta",          tipo: "input"    },
+      { key: "stat3",          label: "Estadística 3 — Número",            tipo: "input"    },
+      { key: "stat3-lbl",      label: "Estadística 3 — Etiqueta",          tipo: "input"    },
+      { key: "stat4",          label: "Estadística 4 — Número",            tipo: "input"    },
+      { key: "stat4-lbl",      label: "Estadística 4 — Etiqueta",          tipo: "input"    },
+      { key: "valores-titulo", label: "Título sección Valores",            tipo: "input"    },
+      { key: "val1-titulo",    label: "Valor 1 — Título",                  tipo: "input"    },
+      { key: "val1-texto",     label: "Valor 1 — Texto",                   tipo: "textarea" },
+      { key: "val2-titulo",    label: "Valor 2 — Título",                  tipo: "input"    },
+      { key: "val2-texto",     label: "Valor 2 — Texto",                   tipo: "textarea" },
+      { key: "val3-titulo",    label: "Valor 3 — Título",                  tipo: "input"    },
+      { key: "val3-texto",     label: "Valor 3 — Texto",                   tipo: "textarea" },
+      { key: "val4-titulo",    label: "Valor 4 — Título",                  tipo: "input"    },
+      { key: "val4-texto",     label: "Valor 4 — Texto",                   tipo: "textarea" },
+      { key: "equipo-titulo",  label: "Título sección Equipo",             tipo: "input"    },
+      { key: "e1-nombre",      label: "Miembro 1 — Nombre",                tipo: "input"    },
+      { key: "e1-rol",         label: "Miembro 1 — Rol",                   tipo: "input"    },
+      { key: "e2-nombre",      label: "Miembro 2 — Nombre",                tipo: "input"    },
+      { key: "e2-rol",         label: "Miembro 2 — Rol",                   tipo: "input"    },
+      { key: "e3-nombre",      label: "Miembro 3 — Nombre",                tipo: "input"    },
+      { key: "e3-rol",         label: "Miembro 3 — Rol",                   tipo: "input"    },
+      { key: "e4-nombre",      label: "Miembro 4 — Nombre",                tipo: "input"    },
+      { key: "e4-rol",         label: "Miembro 4 — Rol",                   tipo: "input"    },
+      { key: "nos-cta-h",      label: "CTA — Título",                      tipo: "input"    },
+      { key: "nos-cta-p",      label: "CTA — Texto",                       tipo: "textarea" },
+      { key: "nos-cta-btn",    label: "CTA — Botón",                       tipo: "input"    },
+    ]
+  },
+  {
+    titulo: "📬 Página Contacto",
+    campos: [
+      { key: "contacto-h1",     label: "Hero — Título",                    tipo: "input"    },
+      { key: "contacto-sub",    label: "Hero — Subtítulo",                 tipo: "input"    },
+      { key: "contacto-info-h", label: "Título columna info",              tipo: "input"    },
+      { key: "contacto-info-p", label: "Texto columna info",               tipo: "textarea" },
+      { key: "wa-btn-txt",      label: "Texto botón WhatsApp",             tipo: "input"    },
+      { key: "form-titulo",     label: "Título formulario",                tipo: "input"    },
+      { key: "form-subtitulo",  label: "Subtítulo formulario",             tipo: "input"    },
+    ]
+  },
+  {
+    titulo: "🧭 Navegación",
+    campos: [
+      { key: "logo",    label: "Logo — texto",       tipo: "input" },
+      { key: "nav1",    label: "Menú — Destinos",    tipo: "input" },
+      { key: "nav2",    label: "Menú — Experiencias",tipo: "input" },
+      { key: "nav3",    label: "Menú — Nosotros",    tipo: "input" },
+      { key: "nav4",    label: "Menú — Blog",        tipo: "input" },
+      { key: "nav5",    label: "Menú — Contacto",    tipo: "input" },
+      { key: "nav-cta", label: "Menú — Botón CTA",   tipo: "input" },
+    ]
+  }
+];
+
+const LANG_META_CMS = {
+  es: { flag: "🇪🇸", label: "Español",  code: "es" },
+  ca: { flag: "🏴",  label: "Català",   code: "ca" },
+  en: { flag: "🇬🇧", label: "English",  code: "en" },
 };
 
-// Sobrescribir la función showSection para incluir "contenido"
-const _originalShowSection = window.showSection;
-window.showSection = function(sec) {
-  if (sec === "contenido") {
-    renderContenido();
-    currentSection = sec;
-    document.querySelectorAll(".sb-btn").forEach(b => b.classList.remove("active"));
-    const btn = document.querySelector(`[data-sec="contenido"]`);
-    if (btn) btn.classList.add("active");
-    return;
+// ── Traducción: Claude API → LibreTranslate fallback ──────
+async function translateBatch(keyValueObj, sourceLang, targetLang) {
+  const entries = Object.entries(keyValueObj).filter(([, v]) => v && v.trim());
+  if (!entries.length) return {};
+
+  const langNames = { es: "Spanish", ca: "Catalan", en: "English" };
+
+  // Intento 1: Claude API
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        messages: [{
+          role: "user",
+          content: `You are a professional travel agency translator.
+Translate the following JSON from ${langNames[sourceLang]} to ${langNames[targetLang]}.
+Keep the EXACT same keys. Only translate values. Preserve emojis and formatting.
+Return ONLY valid JSON, no explanation, no markdown.
+
+${JSON.stringify(Object.fromEntries(entries))}`
+        }]
+      })
+    });
+    const data = await res.json();
+    const raw = data?.content?.[0]?.text || "";
+    return JSON.parse(raw.replace(/```json|```/gi, "").trim());
+  } catch (err) {
+    console.warn("Claude translate failed, trying LibreTranslate:", err);
   }
-  _originalShowSection(sec);
-};
+
+  // Intento 2: LibreTranslate (gratuito)
+  try {
+    const results = {};
+    for (const [key, text] of entries) {
+      const r = await fetch("https://libretranslate.com/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ q: text, source: sourceLang === "ca" ? "es" : sourceLang, target: targetLang === "ca" ? "es" : targetLang, format: "text" })
+      });
+      const d = await r.json();
+      results[key] = d.translatedText || text;
+    }
+    return results;
+  } catch (err) {
+    console.error("LibreTranslate failed:", err);
+    return {};
+  }
+}
+
+// ── Estado centralizado del contenido (un solo listener) ──
+let _remotoCMS = {};
+let _cmsListenerActive = false;
 
 async function renderContenido() {
-  // Cargar contenido actual desde Firebase
-  let remoto = {};
-  const { listenContent, saveContent, listenImages, uploadImage } = await import("./firebase.js");
+  // FIX 1: usar currentLang global del topbar como punto de partida
+  let editLang = currentLang;
 
   document.getElementById("section-content").innerHTML = `
     <div class="sec-header">
       <h2>Contenido del Sitio</h2>
-      <div style="display:flex;align-items:center;gap:10px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span style="font-size:13px;color:#888">Editando en:</span>
-        <div id="lang-tabs" style="display:flex;gap:6px;"></div>
+        <div id="lang-tabs-contenido" style="display:flex;gap:6px;"></div>
       </div>
     </div>
     <div id="contenido-editor">
       <div class="loading"><div class="spinner"></div>Cargando contenido...</div>
     </div>`;
 
-  // Construir pestañas de idioma
-  const langMeta = { es: { flag:"🇪🇸", label:"Español" }, ca: { flag:"🏴", label:"Català" }, en: { flag:"🇬🇧", label:"English" } };
-  let editLang = currentLang;
+  // FIX 2: listener único — no re-registrar si ya está activo
+  if (!_cmsListenerActive) {
+    _cmsListenerActive = true;
+    listenContent(data => {
+      _remotoCMS = data || {};
+      if (document.getElementById("contenido-editor")) _renderEditorContenido();
+    });
+  } else {
+    // Ya hay listener activo, renderizar con datos en memoria
+    _renderEditorContenido();
+  }
+
+  // FIX 3: sincronización con switcher del topbar
+  window._syncContenidoLang = function(code) {
+    editLang = code;
+    _renderEditorContenido();
+  };
 
   function buildLangTabs() {
-    document.getElementById("lang-tabs").innerHTML = Object.entries(langMeta).map(([code, m]) =>
-      `<button class="lang-tab ${code===editLang?'active':''}" onclick="switchEditLang('${code}')">${m.flag} ${m.label}</button>`
+    const container = document.getElementById("lang-tabs-contenido");
+    if (!container) return;
+    container.innerHTML = Object.entries(LANG_META_CMS).map(([code, m]) =>
+      `<button class="lang-tab ${code===editLang?'active':''}"
+        onclick="window._switchEditLang('${code}')"
+       >${m.flag} ${m.label}</button>`
     ).join("");
   }
 
-  window.switchEditLang = function(code) {
+  // FIX 4: exponer en window para que el onclick del botón lo encuentre
+  window._switchEditLang = function(code) {
     editLang = code;
-    buildLangTabs();
-    renderEditor();
+    // Sincronizar también el switcher del topbar
+    currentLang = code;
+    localStorage.setItem("lm_lang", code);
+    buildLangSwitchers();
+    _renderEditorContenido();
   };
 
-  // Escuchar cambios en tiempo real
-  listenContent(data => {
-    remoto = data || {};
-    buildLangTabs();
-    renderEditor();
-  });
-
   function val(key) {
-    return (remoto[editLang] || {})[key] || "";
+    return (_remotoCMS[editLang] || {})[key] || "";
   }
 
-  function renderEditor() {
-    const secciones = [
-      {
-        titulo: "🏠 Página de Inicio",
-        campos: [
-          { key: "hero-h1",   label: "Título principal del Hero",     tipo: "input" },
-          { key: "hero-sub",  label: "Subtítulo del Hero",            tipo: "input" },
-          { key: "hero-btn1", label: "Botón 1 Hero (\"Ver Destinos\")", tipo: "input" },
-          { key: "hero-btn2", label: "Botón 2 Hero (\"Sobre Nosotros\")", tipo: "input" },
-          { key: "dest-title",label: "Título sección Destinos",       tipo: "input" },
-          { key: "d1-name",   label: "Destino 1 — Nombre",           tipo: "input" },
-          { key: "d1-desc",   label: "Destino 1 — Descripción",      tipo: "input" },
-          { key: "d2-name",   label: "Destino 2 — Nombre",           tipo: "input" },
-          { key: "d2-desc",   label: "Destino 2 — Descripción",      tipo: "input" },
-          { key: "d3-name",   label: "Destino 3 — Nombre",           tipo: "input" },
-          { key: "d3-desc",   label: "Destino 3 — Descripción",      tipo: "input" },
-          { key: "d4-name",   label: "Destino 4 — Nombre",           tipo: "input" },
-          { key: "d4-desc",   label: "Destino 4 — Descripción",      tipo: "input" },
-          { key: "ver-todos", label: "Botón \"Ver todos los viajes\"", tipo: "input" },
-          { key: "pq-title",  label: "Título \"¿Por qué elegirnos?\"", tipo: "input" },
-          { key: "pq1",       label: "Razón 1",                      tipo: "input" },
-          { key: "pq2",       label: "Razón 2",                      tipo: "input" },
-          { key: "pq3",       label: "Razón 3",                      tipo: "input" },
-          { key: "pq4",       label: "Razón 4",                      tipo: "input" },
-          { key: "test-title",label: "Título sección Testimonios",    tipo: "input" },
-          { key: "t1-name",   label: "Testimonio 1 — Nombre",        tipo: "input" },
-          { key: "t1-text",   label: "Testimonio 1 — Texto",         tipo: "textarea" },
-          { key: "t2-name",   label: "Testimonio 2 — Nombre",        tipo: "input" },
-          { key: "t2-text",   label: "Testimonio 2 — Texto",         tipo: "textarea" },
-          { key: "t3-name",   label: "Testimonio 3 — Nombre",        tipo: "input" },
-          { key: "t3-text",   label: "Testimonio 3 — Texto",         tipo: "textarea" },
-          { key: "cta-h",     label: "CTA — Título",                  tipo: "input" },
-          { key: "cta-p",     label: "CTA — Texto",                   tipo: "textarea" },
-          { key: "cta-btn",   label: "CTA — Botón",                   tipo: "input" },
-          { key: "footer-slogan", label: "Footer — Slogan",           tipo: "input" },
-        ]
-      },
-      {
-        titulo: "👥 Página Nosotros",
-        campos: [
-          { key: "nos-hero-h1", label: "Hero — Título",               tipo: "input" },
-          { key: "nos-hero-p",  label: "Hero — Subtítulo",            tipo: "input" },
-          { key: "nos-titulo",  label: "Título sección intro",        tipo: "input" },
-          { key: "nos-p1",      label: "Párrafo 1",                   tipo: "textarea" },
-          { key: "nos-p2",      label: "Párrafo 2",                   tipo: "textarea" },
-          { key: "nos-p3",      label: "Párrafo 3",                   tipo: "textarea" },
-          { key: "nos-btn",     label: "Botón Contacto",              tipo: "input" },
-          { key: "stat1",       label: "Estadística 1 — Número",      tipo: "input" },
-          { key: "stat1-lbl",   label: "Estadística 1 — Etiqueta",    tipo: "input" },
-          { key: "stat2",       label: "Estadística 2 — Número",      tipo: "input" },
-          { key: "stat2-lbl",   label: "Estadística 2 — Etiqueta",    tipo: "input" },
-          { key: "stat3",       label: "Estadística 3 — Número",      tipo: "input" },
-          { key: "stat3-lbl",   label: "Estadística 3 — Etiqueta",    tipo: "input" },
-          { key: "stat4",       label: "Estadística 4 — Número",      tipo: "input" },
-          { key: "stat4-lbl",   label: "Estadística 4 — Etiqueta",    tipo: "input" },
-          { key: "valores-titulo", label: "Título sección Valores",   tipo: "input" },
-          { key: "val1-titulo", label: "Valor 1 — Título",            tipo: "input" },
-          { key: "val1-texto",  label: "Valor 1 — Texto",             tipo: "textarea" },
-          { key: "val2-titulo", label: "Valor 2 — Título",            tipo: "input" },
-          { key: "val2-texto",  label: "Valor 2 — Texto",             tipo: "textarea" },
-          { key: "val3-titulo", label: "Valor 3 — Título",            tipo: "input" },
-          { key: "val3-texto",  label: "Valor 3 — Texto",             tipo: "textarea" },
-          { key: "val4-titulo", label: "Valor 4 — Título",            tipo: "input" },
-          { key: "val4-texto",  label: "Valor 4 — Texto",             tipo: "textarea" },
-          { key: "equipo-titulo", label: "Título sección Equipo",     tipo: "input" },
-          { key: "e1-nombre",   label: "Miembro 1 — Nombre",          tipo: "input" },
-          { key: "e1-rol",      label: "Miembro 1 — Rol",             tipo: "input" },
-          { key: "e2-nombre",   label: "Miembro 2 — Nombre",          tipo: "input" },
-          { key: "e2-rol",      label: "Miembro 2 — Rol",             tipo: "input" },
-          { key: "e3-nombre",   label: "Miembro 3 — Nombre",          tipo: "input" },
-          { key: "e3-rol",      label: "Miembro 3 — Rol",             tipo: "input" },
-          { key: "e4-nombre",   label: "Miembro 4 — Nombre",          tipo: "input" },
-          { key: "e4-rol",      label: "Miembro 4 — Rol",             tipo: "input" },
-          { key: "nos-cta-h",   label: "CTA — Título",                tipo: "input" },
-          { key: "nos-cta-p",   label: "CTA — Texto",                 tipo: "textarea" },
-          { key: "nos-cta-btn", label: "CTA — Botón",                 tipo: "input" },
-        ]
-      },
-      {
-        titulo: "📬 Página Contacto",
-        campos: [
-          { key: "contacto-h1",      label: "Hero — Título",          tipo: "input" },
-          { key: "contacto-sub",     label: "Hero — Subtítulo",       tipo: "input" },
-          { key: "contacto-info-h",  label: "Título columna info",    tipo: "input" },
-          { key: "contacto-info-p",  label: "Texto columna info",     tipo: "textarea" },
-          { key: "wa-btn-txt",       label: "Texto botón WhatsApp",   tipo: "input" },
-          { key: "form-titulo",      label: "Título formulario",      tipo: "input" },
-          { key: "form-subtitulo",   label: "Subtítulo formulario",   tipo: "input" },
-        ]
-      },
-      {
-        titulo: "🧭 Navegación",
-        campos: [
-          { key: "logo",    label: "Logo — texto nombre",    tipo: "input" },
-          { key: "nav1",    label: "Menú — Destinos",        tipo: "input" },
-          { key: "nav2",    label: "Menú — Experiencias",    tipo: "input" },
-          { key: "nav3",    label: "Menú — Nosotros",        tipo: "input" },
-          { key: "nav4",    label: "Menú — Blog",            tipo: "input" },
-          { key: "nav5",    label: "Menú — Contacto",        tipo: "input" },
-          { key: "nav-cta", label: "Menú — Botón CTA",       tipo: "input" },
-        ]
-      }
-    ];
+  function _renderEditorContenido() {
+    buildLangTabs();
+    const editor = document.getElementById("contenido-editor");
+    if (!editor) return;
 
-    document.getElementById("contenido-editor").innerHTML = `
+    editor.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:24px;">
-        ${secciones.map(sec => `
+
+        <!-- Barra de auto-traducción -->
+        <div style="
+          background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);
+          border-radius:12px;padding:16px 20px;
+          display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+          box-shadow:0 4px 20px rgba(0,0,0,.15);
+        ">
+          <div style="flex:1;min-width:200px;">
+            <div style="color:#e2c97e;font-weight:700;font-size:14px;margin-bottom:3px;">✨ Auto-traducción con IA</div>
+            <div style="color:#8892b0;font-size:12px;">
+              Guardá en <strong style="color:#ccd6f6">${LANG_META_CMS[editLang].flag} ${LANG_META_CMS[editLang].label}</strong>
+              y traducí automáticamente a los otros 2 idiomas
+            </div>
+          </div>
+          <button id="btn-traducir-ia" onclick="window._traducirConIA()"
+            style="background:linear-gradient(135deg,#e2c97e,#c9a227);color:#1a1a2e;border:none;
+            border-radius:8px;padding:10px 20px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;">
+            🌐 Traducir a los otros idiomas
+          </button>
+          <div id="traduccion-status" style="font-size:12px;color:#8892b0;min-width:160px;"></div>
+        </div>
+
+        <!-- Campos por sección -->
+        ${CONTENIDO_SECCIONES.map(sec => `
           <div class="contenido-sec">
             <div class="contenido-sec-title">${sec.titulo}</div>
             <div class="contenido-campos">
@@ -967,37 +1032,107 @@ async function renderContenido() {
                 </div>`).join("")}
             </div>
           </div>`).join("")}
-        <div style="position:sticky;bottom:0;background:var(--bg);padding:16px 0;border-top:1px solid var(--border);display:flex;gap:12px;align-items:center;">
-          <button class="btn-primary" onclick="guardarContenido()" style="padding:13px 28px;font-size:14px;">
-            💾 Guardar todo el contenido (${langMeta[editLang].flag} ${langMeta[editLang].label})
+
+        <!-- Footer sticky -->
+        <div style="position:sticky;bottom:0;background:var(--bg,#f5f0eb);padding:16px 0;
+          border-top:1px solid var(--border,#e0d9d0);display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <button class="btn-primary" onclick="window._guardarContenidoCMS()" style="padding:13px 28px;font-size:14px;">
+            💾 Guardar (${LANG_META_CMS[editLang].flag} ${LANG_META_CMS[editLang].label})
           </button>
           <span style="font-size:12px;color:#aaa">Los cambios se aplican al sitio en tiempo real</span>
         </div>
-        <div id="contenido-msg" style="font-size:13px;margin-top:4px;"></div>
+        <div id="contenido-msg" style="font-size:13px;"></div>
       </div>`;
   }
 
-  window.guardarContenido = async function() {
-    // Recolectar todos los campos del editor
-    const langData = {};
+  // ── Recolectar campos del DOM ────────────────────────────
+  function _collectFields() {
+    const result = {};
     document.querySelectorAll("[id^='cf-']").forEach(el => {
-      const key = el.id.replace("cf-", "");
-      langData[key] = el.value || el.textContent;
+      result[el.id.replace("cf-", "")] = el.value;
     });
+    return result;
+  }
 
-    // Merge con contenido existente en otros idiomas
-    const updated = { ...remoto, [editLang]: { ...(remoto[editLang]||{}), ...langData } };
-
+  // ── Guardar ─────────────────────────────────────────────
+  window._guardarContenidoCMS = async function() {
+    const langData = _collectFields();
+    const updated  = { ..._remotoCMS, [editLang]: { ...(_remotoCMS[editLang]||{}), ...langData } };
     try {
       await saveContent(updated);
-      document.getElementById("contenido-msg").textContent = `✅ Contenido en ${langMeta[editLang].label} guardado`;
-      showToast("✅ Contenido guardado");
-      setTimeout(() => {
-        const msg = document.getElementById("contenido-msg");
-        if (msg) msg.textContent = "";
-      }, 3000);
+      _remotoCMS = updated;
+      const msg = document.getElementById("contenido-msg");
+      if (msg) msg.textContent = `✅ Guardado en ${LANG_META_CMS[editLang].label}`;
+      showToast(`✅ Guardado (${LANG_META_CMS[editLang].flag} ${LANG_META_CMS[editLang].label})`);
+      setTimeout(() => { const m = document.getElementById("contenido-msg"); if(m) m.textContent=""; }, 3000);
     } catch(e) {
-      document.getElementById("contenido-msg").textContent = "❌ Error: " + e.message;
+      const msg = document.getElementById("contenido-msg");
+      if (msg) msg.textContent = "❌ Error: " + e.message;
     }
   };
+
+  // ── Traducir con IA ─────────────────────────────────────
+  window._traducirConIA = async function() {
+    const btn    = document.getElementById("btn-traducir-ia");
+    const status = document.getElementById("traduccion-status");
+    if (!btn || !status) return;
+
+    // 1. Guardar idioma actual primero
+    const currentData = _collectFields();
+    btn.disabled = true; btn.textContent = "⏳ Guardando...";
+
+    try {
+      const saved = { ..._remotoCMS, [editLang]: { ...(_remotoCMS[editLang]||{}), ...currentData } };
+      await saveContent(saved);
+      _remotoCMS = saved;
+    } catch(e) {
+      status.style.color = "#e74c3c";
+      status.textContent = "❌ Error al guardar";
+      btn.disabled = false; btn.textContent = "🌐 Traducir a los otros idiomas";
+      return;
+    }
+
+    // 2. Traducir a los otros 2 idiomas
+    const otherLangs = Object.keys(LANG_META_CMS).filter(l => l !== editLang);
+    let finalContent = { ..._remotoCMS };
+    let allOk = true;
+
+    for (const targetLang of otherLangs) {
+      btn.textContent = `⏳ Traduciendo a ${LANG_META_CMS[targetLang].label}...`;
+      status.style.color = "#8892b0";
+      status.textContent = `Procesando ${Object.keys(currentData).length} campos...`;
+      try {
+        const translated = await translateBatch(currentData, editLang, targetLang);
+        if (!Object.keys(translated).length) throw new Error("Sin resultados");
+        finalContent[targetLang] = { ...(_remotoCMS[targetLang]||{}), ...translated };
+        status.textContent = `✅ ${LANG_META_CMS[targetLang].flag} listo`;
+      } catch(err) {
+        allOk = false;
+        status.style.color = "#e74c3c";
+        status.textContent = `⚠️ Error en ${LANG_META_CMS[targetLang].label}`;
+        console.error(err);
+      }
+    }
+
+    // 3. Guardar todo
+    try {
+      await saveContent(finalContent);
+      _remotoCMS = finalContent;
+      if (allOk) {
+        showToast("🌐 Traducción completa — ES, CA y EN actualizados");
+        status.style.color = "#27ae60";
+        status.textContent = "✅ Todos los idiomas actualizados";
+      } else {
+        showToast("⚠️ Traducción parcial — revisá la consola");
+      }
+    } catch(e) {
+      status.style.color = "#e74c3c";
+      status.textContent = "❌ Error guardando: " + e.message;
+    }
+
+    btn.disabled = false; btn.textContent = "🌐 Traducir a los otros idiomas";
+  };
+
+  // Primer render con datos actuales
+  _renderEditorContenido();
 }

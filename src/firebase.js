@@ -188,19 +188,37 @@ export async function getDestino(id) {
 
 // 🔥 ESTE ES EL FIX
 export async function saveDestino(id, data) {
-  let imagenUrl = data.imagen || "";
+  let imagenes = data.imagenes || [];
 
-  // 👉 si viene archivo nuevo
-  if (data.file) {
-    imagenUrl = await uploadImage(data.file);
+  // 🔥 subir archivos
+  if (data.files && data.files.length > 0) {
+    const uploaded = await Promise.all(
+      data.files.map(async (file) => {
+        const url = await uploadImage(file);
+        console.log("📷 Imagen subida:", url);
+        return url;
+      })
+    );
+
+    imagenes = [...imagenes, ...uploaded];
   }
 
+  // fallback
+  if (imagenes.length === 0 && data.imagen) {
+    imagenes = [data.imagen];
+  }
+
+  // ❌ eliminar files antes de guardar
+  const { files, ...cleanData } = data;
+
   await setDoc(doc(db, "destinos", id), {
-    ...data,
-    imagen: imagenUrl, // 👈 clave
+    ...cleanData,
+    imagenes,
+    imagen: imagenes[0] || "",
     updatedAt: new Date().toISOString()
   });
 }
+
 
 export async function deleteDestino(id) {
   await deleteDoc(doc(db, "destinos", id));
