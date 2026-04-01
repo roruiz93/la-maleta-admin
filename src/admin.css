@@ -283,3 +283,91 @@ table.ut td { padding:10px 11px; border-bottom:1px solid var(--border); font-siz
 .lang-btn-admin { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); color:#fff; padding:5px 10px; border-radius:4px; cursor:pointer; font-family:'Lato',sans-serif; font-size:12px; transition:.2s; }
 .lang-btn-admin:hover { background:rgba(255,255,255,.18); }
 .lang-btn-admin.active { background:var(--gold); border-color:var(--gold); }
+
+/* ─── UPLOAD DE IMÁGENES ─── */
+.image-upload-container { margin-top:8px; }
+.btn-upload {
+  background:var(--gold);
+  color:white;
+  border:none;
+  padding:10px 16px;
+  border-radius:6px;
+  cursor:pointer;
+  font-family:'Lato',sans-serif;
+  font-size:13px;
+  transition:all .2s;
+  font-weight:600;
+}
+.btn-upload:hover {
+  background:#a6804a;
+  transform:translateY(-1px);
+}
+.current-image {
+  margin-top:12px;
+  padding:12px;
+  background:#f8f9fa;
+  border-radius:6px;
+  border:1px solid #dee2e6;
+}
+.current-image img {
+  border-radius:4px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* ─── BOTONES SECUNDARIOS ─── */
+.btn-secondary {
+  background:#6c757d;
+  color:white;
+  border:none;
+  padding:10px 16px;
+  border-radius:6px;
+  cursor:pointer;
+  font-family:'Lato',sans-serif;
+  font-size:13px;
+  transition:all .2s;
+  font-weight:600;
+}
+.btn-secondary:hover {
+  background:#5a6268;
+  transform:translateY(-1px);
+}
+
+/* ─── VISTA PREVIA ─── */
+#preview-container {
+  box-shadow:0 4px 12px rgba(0,0,0,0.15);
+  transition:all .3s ease;
+}
+#preview-iframe {
+  transition:opacity .3s;
+}
+#preview-container .btn-preview {
+  background:var(--gold);
+  color:white;
+  border:none;
+  cursor:pointer;
+  padding:6px 12px;
+  border-radius:4px;
+  font-size:12px;
+  margin-right:8px;
+  font-weight:600;
+  transition:all .2s;
+}
+#preview-container .btn-preview:hover {
+  background:#a6804a;
+  transform:translateY(-1px);
+}
+#preview-container .btn-close {
+  background:#dc3545;
+  color:white;
+  border:none;
+  cursor:pointer;
+  padding:6px 12px;
+  border-radius:4px;
+  font-size:12px;
+  font-weight:600;
+  transition:all .2s;
+}
+#preview-container .btn-close:hover {
+  background:#c82333;
+  transform:translateY(-1px);
+}

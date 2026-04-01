@@ -14,10 +14,11 @@ import {
   getPosts, getPost, savePost, deletePost,
   getConsultas, marcarLeida, uploadImage
 } from "./firebase.js";
-import { translations, langMeta } from "./i18n.js";
+import { translations, langMeta, t } from "./i18n.js";
 
 import { auth } from "./firebase-config";
 const WEB_URL = import.meta.env.VITE_WEB_URL || "https://lamaleta.vercel.app";
+const WEB_URL_LOCAL = import.meta.env.VITE_WEB_URL_LOCAL || WEB_URL;
 
 // ─── Estado ───────────────────────────────────────────────
 let CU = null, currentLang = localStorage.getItem("lm_lang") || "es", remoteContent = {};
@@ -62,6 +63,8 @@ window.doLogout = async () => { await logoutUser(); };
 function showLogin() {
   document.getElementById("login-screen").style.display = "flex";
   document.getElementById("cms-panel").style.display = "none";
+  // Aplicar traducciones también en la pantalla de login
+  applyAdminTranslations(currentLang);
 }
 function showCMS() {
   document.getElementById("login-screen").style.display = "none";
@@ -80,8 +83,9 @@ function setupCMS() {
   const isSA = CU.role === "superadmin";
   document.getElementById("btn-users").style.display  = isSA ? "inline-flex" : "none";
   document.getElementById("super-sep").style.display  = isSA ? "block" : "none";
-  document.getElementById("preview-link").href = WEB_URL;
+  // Enlace de vista previa removido - ahora usamos iframe integrado
   buildLangSwitchers();
+  applyAdminTranslations(currentLang);
   // FIX: listener centralizado de contenido — actualiza remoteContent global
   listenContent(d => { if (d) remoteContent = d; });
   listenColors(syncColorPickers);
@@ -105,7 +109,7 @@ window.showSection = function(sec) {
     settings:     renderSettings,
     usuarios:     renderUsuarios,
   };
-  content.innerHTML = `<div class="loading"><div class="spinner"></div>Cargando...</div>`;
+  content.innerHTML = `<div class="loading"><div class="spinner"></div>${t('loading', currentLang)}</div>`;
   if (loaders[sec]) loaders[sec]();
 };
 
@@ -115,23 +119,25 @@ async function renderDashboard() {
     getDestinos(), getPosts(false), getConsultas()
   ]);
   const noLeidas = consultas.filter(c => !c.leida).length;
+  const translate = (key) => translations[currentLang]?.[key] || translations['es']?.[key] || key;
+
   document.getElementById("section-content").innerHTML = `
-    <div class="sec-header"><h2>Dashboard</h2><p>Resumen del sitio</p></div>
+    <div class="sec-header"><h2>${translate('dash-title')}</h2><p>${translate('dash-summary')}</p></div>
     <div class="dash-grid">
       <div class="dash-card" onclick="showSection('destinos')">
-        <div class="dash-icon">✈️</div><div class="dash-num">${destinos.length}</div><div class="dash-lbl">Destinos</div>
+        <div class="dash-icon">✈️</div><div class="dash-num">${destinos.length}</div><div class="dash-lbl">${translate('dash-destinos')}</div>
       </div>
       <div class="dash-card" onclick="showSection('blog')">
-        <div class="dash-icon">📝</div><div class="dash-num">${posts.length}</div><div class="dash-lbl">Posts del Blog</div>
+        <div class="dash-icon">📝</div><div class="dash-num">${posts.length}</div><div class="dash-lbl">${translate('dash-posts')}</div>
       </div>
       <div class="dash-card ${noLeidas>0?'dash-alert':''}" onclick="showSection('consultas')">
-        <div class="dash-icon">💬</div><div class="dash-num">${noLeidas}</div><div class="dash-lbl">Consultas sin leer</div>
+        <div class="dash-icon">💬</div><div class="dash-num">${noLeidas}</div><div class="dash-lbl">${translate('dash-consultas')} ${translate('dash-no-read')}</div>
       </div>
       <div class="dash-card" onclick="showSection('settings')">
-        <div class="dash-icon">⚙️</div><div class="dash-num">—</div><div class="dash-lbl">Configuración</div>
+        <div class="dash-icon">⚙️</div><div class="dash-num">—</div><div class="dash-lbl">${translate('dash-settings')}</div>
       </div>
     </div>
-    <div class="sec-tip">💡 Tip: Usá la sección "Contenido" para editar los textos del sitio en cada idioma.</div>
+    <div class="sec-tip">${translate('tip-content')}</div>
     <div style="margin-top:32px;">
       <h3 style="font-family:'Playfair Display',serif;font-size:20px;margin-bottom:16px;">Últimas consultas</h3>
       ${consultas.slice(0,5).map(c=>`
@@ -591,37 +597,39 @@ window.marcarLeido = async function(id) {
 // ─── SETTINGS ─────────────────────────────────────────────
 async function renderSettings() {
   const s = await getSettings();
+  const translate = (key) => translations[currentLang]?.[key] || translations['es']?.[key] || key;
+
   document.getElementById("section-content").innerHTML = `
-    <div class="sec-header"><h2>Configuración del sitio</h2></div>
+    <div class="sec-header"><h2>${translate('settings-title')}</h2></div>
     <div class="settings-grid">
       <div class="settings-card">
-        <div class="settings-card-title">📱 WhatsApp</div>
-        <div class="form-field"><label>Número (sin + ni espacios)</label>
+        <div class="settings-card-title">${translate('settings-whatsapp')}</div>
+        <div class="form-field"><label>${translate('settings-whatsapp-number')}</label>
           <input id="s-wa" value="${s.whatsapp||''}" placeholder="5491112345678">
           <span class="field-hint">Formato: código país + área + número. Ej: 5491112345678</span>
         </div>
-        <div class="form-field"><label>Mensaje por defecto</label>
+        <div class="form-field"><label>${translate('settings-whatsapp-msg')}</label>
           <input id="s-wa-msg" value="${s.whatsappMsg||'Hola, quisiera información sobre sus viajes'}">
         </div>
       </div>
       <div class="settings-card">
-        <div class="settings-card-title">📬 Datos de contacto</div>
-        <div class="form-field"><label>Teléfono</label><input id="s-tel" value="${s.tel||''}" placeholder="+54 9 11 0000-0000"></div>
-        <div class="form-field"><label>Email</label><input id="s-email" value="${s.email||''}" placeholder="info@lamaleta.com"></div>
-        <div class="form-field"><label>Dirección</label><input id="s-addr" value="${s.addr||''}" placeholder="Buenos Aires, Argentina"></div>
-        <div class="form-field"><label>Horario</label><input id="s-hours" value="${s.hours||''}" placeholder="Lun–Vie 9:00–18:00"></div>
+        <div class="settings-card-title">${translate('settings-contact')}</div>
+        <div class="form-field"><label>${translate('settings-phone')}</label><input id="s-tel" value="${s.tel||''}" placeholder="+54 9 11 0000-0000"></div>
+        <div class="form-field"><label>${translate('settings-email')}</label><input id="s-email" value="${s.email||''}" placeholder="info@lamaleta.com"></div>
+        <div class="form-field"><label>${translate('settings-address')}</label><input id="s-addr" value="${s.addr||''}" placeholder="Buenos Aires, Argentina"></div>
+        <div class="form-field"><label>${translate('settings-hours')}</label><input id="s-hours" value="${s.hours||''}" placeholder="Lun–Vie 9:00–18:00"></div>
       </div>
       <div class="settings-card">
-        <div class="settings-card-title">🎨 Colores del sitio</div>
-        <div class="cp-row"><label>Dorado (acento)</label><input type="color" id="cp-gold"  value="${s.gold||'#b8924a'}" oninput="previewColor('--gold',this.value)"></div>
-        <div class="cp-row"><label>Fondo general</label>  <input type="color" id="cp-bg"    value="${s.bg||'#f5f0eb'}" oninput="previewColor('--bg',this.value)"></div>
-        <div class="cp-row"><label>Texto principal</label> <input type="color" id="cp-text"  value="${s.text||'#3a3028'}" oninput="previewColor('--text',this.value)"></div>
-        <div class="cp-row"><label>Color oscuro</label>    <input type="color" id="cp-pri"   value="${s.primary||'#2c2416'}" oninput="previewColor('--primary',this.value)"></div>
-        <div class="cp-row"><label>Fondo cards</label>     <input type="color" id="cp-card"  value="${s.cardBg||'#faf7f3'}" oninput="previewColor('--card-bg',this.value)"></div>
+        <div class="settings-card-title">${translate('settings-colors')}</div>
+        <div class="cp-row"><label>${translate('settings-color-gold')}</label><input type="color" id="cp-gold"  value="${s.gold||'#b8924a'}" oninput="previewColor('--gold',this.value)"></div>
+        <div class="cp-row"><label>${translate('settings-color-bg')}</label>  <input type="color" id="cp-bg"    value="${s.bg||'#f5f0eb'}" oninput="previewColor('--bg',this.value)"></div>
+        <div class="cp-row"><label>${translate('settings-color-text')}</label> <input type="color" id="cp-text"  value="${s.text||'#3a3028'}" oninput="previewColor('--text',this.value)"></div>
+        <div class="cp-row"><label>${translate('settings-color-primary')}</label>    <input type="color" id="cp-pri"   value="${s.primary||'#2c2416'}" oninput="previewColor('--primary',this.value)"></div>
+        <div class="cp-row"><label>${translate('settings-color-card')}</label>     <input type="color" id="cp-card"  value="${s.cardBg||'#faf7f3'}" oninput="previewColor('--card-bg',this.value)"></div>
       </div>
       <div class="settings-card">
-        <div class="settings-card-title">🌐 Idioma por defecto</div>
-        <div class="form-field"><label>Idioma que ven los visitantes al entrar</label>
+        <div class="settings-card-title">${translate('settings-lang')}</div>
+        <div class="form-field"><label>${translate('settings-lang-desc')}</label>
           <select id="s-lang">
             <option value="es" ${(s.defaultLang||'es')==='es'?'selected':''}>🇪🇸 Español</option>
             <option value="ca" ${s.defaultLang==='ca'?'selected':''}>🏴 Català</option>
@@ -629,16 +637,59 @@ async function renderSettings() {
           </select>
         </div>
       </div>
+      <div class="settings-card">
+        <div class="settings-card-title">${translate('settings-images')}</div>
+        <div class="form-field">
+          <label>${translate('settings-logo')}</label>
+          <div class="image-upload-container">
+            <button class="btn-upload" onclick="uploadLogo()">${translate('settings-upload-logo')}</button>
+            <input type="file" id="logo-input" accept="image/*" style="display:none" onchange="handleLogoUpload(this)">
+            <div class="current-image" id="current-logo">
+              ${s.logoUrl ? `<img src="${s.logoUrl}" alt="Logo actual" style="max-width:100px; margin-top:8px;">` : `<span style="color:#666; font-size:13px;">${translate('settings-no-logo')}</span>`}
+            </div>
+          </div>
+        </div>
+        <div class="form-field">
+          <label>${translate('settings-hero')}</label>
+          <div class="image-upload-container">
+            <button class="btn-upload" onclick="uploadHeroImage()">${translate('settings-upload-hero')}</button>
+            <input type="file" id="hero-input" accept="image/*" style="display:none" onchange="handleHeroUpload(this)">
+            <div class="current-image" id="current-hero">
+              ${s.heroImageUrl ? `<img src="${s.heroImageUrl}" alt="Hero actual" style="max-width:200px; margin-top:8px;">` : `<span style="color:#666; font-size:13px;">${translate('settings-default-hero')}</span>`}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <div style="margin-top:24px;">
-      <button class="btn-primary" onclick="guardarSettings()" style="padding:14px 32px;font-size:15px;">💾 Guardar toda la configuración</button>
+      <button class="btn-primary" onclick="guardarSettings()" style="padding:14px 32px;font-size:15px;">${translate('settings-save')}</button>
+      <button class="btn-secondary" onclick="togglePreview()" style="padding:14px 32px;font-size:15px;margin-left:12px;" id="toggle-preview-btn">${translate('settings-preview')}</button>
     </div>
-    <div id="settings-msg" style="margin-top:12px;font-size:14px;"></div>`;
+    <div id="settings-msg" style="margin-top:12px;font-size:14px;"></div>
+
+    <!-- Vista previa del sitio web -->
+    <div id="preview-container" style="display:block; margin-top:32px; border:1px solid #ddd; border-radius:8px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+      <div style="background:#f8f9fa; padding:12px; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-weight:bold; color:#666; font-size:14px;">${translate('preview-title')}</span>
+        <div>
+          <button onclick="refreshPreview()" class="btn-preview">${translate('preview-refresh')}</button>
+          <button onclick="togglePreview()" class="btn-close">${translate('preview-close')}</button>
+          <button onclick="showServerHelp()" style="background:#17a2b8; color:white; border:none; padding:6px 12px; border-radius:4px; font-size:12px; margin-left:8px; cursor:pointer;">❓ Ayuda servidor</button>
+        </div>
+      </div>
+      <iframe id="preview-iframe" style="width:100%; height:600px; border:none; background:#f8f9fa;"></iframe>
+    </div>`;
+
+  // Cargar automáticamente la vista previa al abrir configuración
+  setTimeout(() => {
+    loadCurrentWebsite();
+  }, 500);
 }
 
 window.previewColor = function(varName, val) { document.documentElement.style.setProperty(varName, val); };
 
 window.guardarSettings = async function() {
+  const currentSettings = await getSettings();
   const data = {
     whatsapp:    document.getElementById("s-wa").value.trim(),
     whatsappMsg: document.getElementById("s-wa-msg").value.trim(),
@@ -652,11 +703,14 @@ window.guardarSettings = async function() {
     text:    document.getElementById("cp-text").value,
     primary: document.getElementById("cp-pri").value,
     cardBg:  document.getElementById("cp-card").value,
+    // Mantener las URLs de imágenes si existen
+    logoUrl: currentSettings.logoUrl || null,
+    heroImageUrl: currentSettings.heroImageUrl || null,
   };
   try {
     await saveSettings(data);
-    document.getElementById("settings-msg").textContent = "✅ Configuración guardada correctamente";
-    showToast("✅ Configuración guardada");
+    document.getElementById("settings-msg").textContent = t('msg-config-saved', currentLang);
+    showToast(t('msg-config-saved', currentLang));
     setTimeout(()=>document.getElementById("settings-msg").textContent="", 3000);
   } catch(e) { document.getElementById("settings-msg").textContent = "❌ Error: " + e.message; }
 };
@@ -728,12 +782,35 @@ window.switchLang = function(code) {
   currentLang = code;
   localStorage.setItem("lm_lang", code);
   buildLangSwitchers();
+  applyAdminTranslations(code);
   // Si el editor de contenido está abierto, sincronizar
   if (currentSection === "contenido" && typeof window._syncContenidoLang === "function") {
     window._syncContenidoLang(code);
   }
   showToast(`🌐 Editando en ${langMeta[code].label}`);
 };
+
+// Aplicar traducciones al admin
+function applyAdminTranslations(lang) {
+  const t = (key) => translations[lang]?.[key] || translations['es']?.[key] || key;
+
+  // Actualizar elementos con data-i18n
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if (el.tagName === 'INPUT' && (el.type === 'text' || el.type === 'email' || el.type === 'password')) {
+      el.placeholder = t(key);
+    } else {
+      el.textContent = t(key);
+    }
+  });
+
+  // Re-render la sección actual para aplicar traducciones
+  if (currentSection === 'settings') {
+    renderSettings();
+  } else if (currentSection === 'dashboard') {
+    renderDashboard();
+  }
+}
 
 // ─── Colores ──────────────────────────────────────────────
 function syncColorPickers(data) {
@@ -1136,3 +1213,189 @@ async function renderContenido() {
   // Primer render con datos actuales
   _renderEditorContenido();
 }
+
+// ─── FUNCIONES PARA IMÁGENES ─────────────────────────────────
+window.uploadLogo = function() {
+  document.getElementById("logo-input").click();
+};
+
+window.uploadHeroImage = function() {
+  document.getElementById("hero-input").click();
+};
+
+window.handleLogoUpload = async function(input) {
+  if (!input.files || !input.files[0]) return;
+
+  const file = input.files[0];
+  if (!file.type.startsWith('image/')) {
+    showToast(t('msg-invalid-image', currentLang));
+    return;
+  }
+
+  // Verificar tamaño (max 2MB)
+  if (file.size > 2 * 1024 * 1024) {
+    showToast(t('msg-image-too-big', currentLang) + " 2MB");
+    return;
+  }
+
+  try {
+    showToast(t('msg-uploading-logo', currentLang));
+    const url = await uploadImage(file, `logos/logo_${Date.now()}`);
+
+    // Actualizar configuración
+    const currentSettings = await getSettings();
+    await saveSettings({...currentSettings, logoUrl: url});
+
+    // Actualizar vista
+    document.getElementById("current-logo").innerHTML =
+      `<img src="${url}" alt="Logo actual" style="max-width:100px; margin-top:8px;">`;
+
+    showToast(t('msg-logo-updated', currentLang));
+
+    // Actualizar vista previa con delay para que Firebase sincronice
+    setTimeout(() => {
+      refreshPreview();
+    }, 2000);
+
+  } catch (error) {
+    console.error("Error subiendo logo:", error);
+    showToast("❌ Error: " + error.message);
+  }
+};
+
+window.handleHeroUpload = async function(input) {
+  if (!input.files || !input.files[0]) return;
+
+  const file = input.files[0];
+  if (!file.type.startsWith('image/')) {
+    showToast(t('msg-invalid-image', currentLang));
+    return;
+  }
+
+  // Verificar tamaño (max 5MB para hero)
+  if (file.size > 5 * 1024 * 1024) {
+    showToast(t('msg-image-too-big', currentLang) + " 5MB");
+    return;
+  }
+
+  try {
+    showToast(t('msg-uploading-hero', currentLang));
+    const url = await uploadImage(file, `hero/hero_${Date.now()}`);
+
+    // Actualizar configuración
+    const currentSettings = await getSettings();
+    await saveSettings({...currentSettings, heroImageUrl: url});
+
+    // Actualizar vista
+    document.getElementById("current-hero").innerHTML =
+      `<img src="${url}" alt="Hero actual" style="max-width:200px; margin-top:8px;">`;
+
+    showToast(t('msg-hero-updated', currentLang));
+
+    // Actualizar vista previa con delay para que Firebase sincronice
+    setTimeout(() => {
+      refreshPreview();
+    }, 2000);
+
+  } catch (error) {
+    console.error("Error subiendo imagen hero:", error);
+    showToast("❌ Error: " + error.message);
+  }
+};
+
+// ─── FUNCIONES PARA VISTA PREVIA ─────────────────────────────
+window.togglePreview = function() {
+  const container = document.getElementById("preview-container");
+  const btn = document.getElementById("toggle-preview-btn");
+
+  if (container.style.display === "none") {
+    container.style.display = "block";
+    if (btn) btn.textContent = t('preview-hide', currentLang);
+    // Cargar inmediatamente el sitio web actual
+    loadCurrentWebsite();
+  } else {
+    container.style.display = "none";
+    if (btn) btn.textContent = t('preview-show', currentLang);
+  }
+};
+
+window.loadCurrentWebsite = function() {
+  const iframe = document.getElementById("preview-iframe");
+  if (iframe) {
+    // Usar URL local si estamos en desarrollo, o la URL de producción
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const previewUrl = isLocal ? WEB_URL_LOCAL : WEB_URL;
+
+    // Cargar la página sin timestamp para mostrar el estado actual
+    iframe.src = previewUrl;
+
+    // Mostrar mensaje de carga
+    showToast(t('msg-preview-loading', currentLang));
+
+    // Manejo de errores para desarrollo local
+    if (isLocal) {
+      iframe.onerror = () => {
+        showToast("❌ Error: No se puede conectar al servidor local. ¿Está ejecutándose en " + WEB_URL_LOCAL + "?");
+      };
+    }
+  }
+};
+
+window.refreshPreview = function() {
+  const iframe = document.getElementById("preview-iframe");
+  if (iframe) {
+    // Usar URL local si estamos en desarrollo, o la URL de producción
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const previewUrl = isLocal ? WEB_URL_LOCAL : WEB_URL;
+
+    // Forzar recarga completa limpiando el src primero
+    iframe.src = 'about:blank';
+
+    setTimeout(() => {
+      // Agregar timestamp para forzar recarga completa
+      const timestamp = Date.now();
+      const separator = previewUrl.includes('?') ? '&' : '?';
+      iframe.src = `${previewUrl}${separator}_refresh=${timestamp}&_nocache=${Math.random()}`;
+    }, 100);
+
+    showToast(t('msg-preview-updating', currentLang));
+
+    // Manejo de errores para desarrollo local
+    if (isLocal) {
+      iframe.onerror = () => {
+        showToast("❌ Error: No se puede conectar al servidor local. ¿Está ejecutándose en " + WEB_URL_LOCAL + "?");
+      };
+    }
+  }
+};
+
+// Función para mostrar ayuda del servidor
+window.showServerHelp = function() {
+  const helpText = `
+🌐 CONFIGURACIÓN DEL SERVIDOR LOCAL
+
+Para que funcione la vista previa necesitas levantar un servidor local:
+
+📋 INSTRUCCIONES RÁPIDAS:
+
+1️⃣ Abre la terminal/cmd
+2️⃣ Navega al directorio:
+   cd /c/Users/Ususario/OneDrive/Documentos/proyectos/la-maleta-web
+
+3️⃣ Levanta servidor con Python:
+   python -m http.server 5173
+
+4️⃣ Verifica que funcione:
+   Abre: http://localhost:5173
+
+📝 Opciones alternativas:
+• live-server --port=5173 (con Node.js)
+• php -S localhost:5173 (con PHP)
+
+Una vez que tengas el servidor corriendo, haz clic en "🔄 Actualizar" para ver la vista previa.
+
+ℹ️ El archivo SERVER-SETUP.md tiene instrucciones completas.
+  `;
+
+  alert(helpText);
+};

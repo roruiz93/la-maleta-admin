@@ -22,11 +22,11 @@
       </svg>
       <div><span class="ls-sub">Viajes</span><span class="ls-name">La Maleta</span></div>
     </div>
-    <h1 class="ls-title">Panel de Administración</h1>
-    <p class="ls-desc">Ingresá para gestionar el contenido del sitio</p>
-    <div class="lf"><label>Email</label><input type="email" id="lu" placeholder="admin@lamaleta.com" autocomplete="email"></div>
-    <div class="lf"><label>Contraseña</label><input type="password" id="lp" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
-    <button class="ls-btn" id="login-submit" onclick="doLogin()">Ingresar</button>
+    <h1 class="ls-title" data-i18n="login-title">Panel de Administración</h1>
+    <p class="ls-desc" data-i18n="login-desc">Ingresá para gestionar el contenido del sitio</p>
+    <div class="lf"><label data-i18n="login-email">Email</label><input type="email" id="lu" placeholder="admin@lamaleta.com" autocomplete="email"></div>
+    <div class="lf"><label data-i18n="login-password">Contraseña</label><input type="password" id="lp" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="ls-btn" id="login-submit" onclick="doLogin()" data-i18n="login-btn">Ingresar</button>
     <div class="ls-err" id="lerr"></div>
   </div>
 </div>
@@ -43,14 +43,13 @@
           <path d="M14 13V10a8 8 0 0 1 16 0v3" stroke="#b8924a" stroke-width="2" stroke-linecap="round"/>
           <rect x="19" y="20" width="6" height="8" rx="1.5" stroke="#b8924a" stroke-width="1.8"/>
         </svg>
-        <span>La Maleta CMS</span>
+        <span data-i18n="admin-cms">La Maleta CMS</span>
       </div>
     </div>
     <div class="tb-right">
       <div id="lang-switcher-admin" class="lang-switcher-admin"></div>
-      <a class="tb-preview" id="preview-link" href="#" target="_blank">🌐 Ver sitio</a>
       <span class="tb-badge" id="tb-badge"></span>
-      <button class="tb-btn red" onclick="doLogout()">Salir</button>
+      <button class="tb-btn red" onclick="doLogout()" data-i18n="btn-logout">Salir</button>
     </div>
   </div>
 
@@ -60,18 +59,18 @@
     <!-- SIDEBAR -->
     <aside class="cms-sidebar">
       <div class="sb-section">
-        <div class="sb-title">Contenido</div>
-        <button class="sb-btn" data-sec="dashboard"    onclick="showSection('dashboard')">🏠 Dashboard</button>
-        <button class="sb-btn" data-sec="contenido"   onclick="showSection('contenido')">📄 Contenido</button>
-        <button class="sb-btn" data-sec="destinos"     onclick="showSection('destinos')">✈️ Destinos</button>
-        <button class="sb-btn" data-sec="experiencias" onclick="showSection('experiencias')">⭐ Experiencias</button>
-        <button class="sb-btn" data-sec="blog"         onclick="showSection('blog')">📝 Blog</button>
-        <button class="sb-btn" data-sec="consultas"    onclick="showSection('consultas')">💬 Consultas</button>
+        <div class="sb-title" data-i18n="sidebar-content">Contenido</div>
+        <button class="sb-btn" data-sec="dashboard"    onclick="showSection('dashboard')" data-i18n="sidebar-dashboard">🏠 Dashboard</button>
+        <button class="sb-btn" data-sec="contenido"   onclick="showSection('contenido')" data-i18n="sidebar-contenido">📄 Contenido</button>
+        <button class="sb-btn" data-sec="destinos"     onclick="showSection('destinos')" data-i18n="sidebar-destinos">✈️ Destinos</button>
+        <button class="sb-btn" data-sec="experiencias" onclick="showSection('experiencias')" data-i18n="sidebar-experiencias">⭐ Experiencias</button>
+        <button class="sb-btn" data-sec="blog"         onclick="showSection('blog')" data-i18n="sidebar-blog">📝 Blog</button>
+        <button class="sb-btn" data-sec="consultas"    onclick="showSection('consultas')" data-i18n="sidebar-consultas">💬 Consultas</button>
       </div>
       <div class="sb-section">
-        <div class="sb-title">Sistema</div>
-        <button class="sb-btn" data-sec="settings" onclick="showSection('settings')">⚙️ Configuración</button>
-        <button class="sb-btn" data-sec="usuarios" id="btn-users" style="display:none" onclick="showSection('usuarios')">👥 Usuarios</button>
+        <div class="sb-title" data-i18n="sidebar-system">Sistema</div>
+        <button class="sb-btn" data-sec="settings" onclick="showSection('settings')" data-i18n="sidebar-settings">⚙️ Configuración</button>
+        <button class="sb-btn" data-sec="usuarios" id="btn-users" style="display:none" onclick="showSection('usuarios')" data-i18n="sidebar-users">👥 Usuarios</button>
       </div>
       <div class="sb-sep" id="super-sep" style="display:none"></div>
     </aside>

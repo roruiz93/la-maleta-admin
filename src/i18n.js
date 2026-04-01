@@ -1,144 +1,259 @@
 // ============================================================
-//  Traducciones del sitio — Español / Català / English
+//  Traducciones del ADMIN — Español / Català / English
 // ============================================================
 
 export const translations = {
 
   es: {
-    // Header nav
-    'nav1':    'Destinos',
-    'nav2':    'Experiencias',
-    'nav3':    'Nosotros',
-    'nav4':    'Blog',
-    'nav5':    'Contacto',
-    'nav-cta': 'Solicitá información',
+    // Login
+    'login-title': 'Panel de Administración',
+    'login-desc': 'Ingresá para gestionar el contenido del sitio',
+    'login-email': 'Email',
+    'login-password': 'Contraseña',
+    'login-btn': 'Ingresar',
 
-    // Hero
-    'hero-h1':   'Organizamos los viajes<br>que siempre soñaste',
-    'hero-sub':  'Descubrí destinos únicos con un trato cercano y personalizado',
-    'hero-btn1': 'Ver Destinos',
-    'hero-btn2': 'Sobre Nosotros',
+    // Top bar
+    'admin-cms': 'La Maleta CMS',
+    'btn-logout': 'Salir',
 
-    // Destinos
-    'dest-title': 'Destinos Destacados',
-    'd1-name': 'Noruega',   'd1-desc': '7 Días, desde $1200', 'd1-btn': 'Ver más',
-    'd2-name': 'Japón',     'd2-desc': '7 Días, desde $1200', 'd2-btn': 'Ver más',
-    'd3-name': 'Maldivas',  'd3-desc': '7 Días, desde $1200', 'd3-btn': 'Ver más',
-    'd4-name': 'Patagonia','d4-desc': '7 Días, desde $1200', 'd4-btn': 'Ver más',
-    'ver-todos': 'Ver Todos los Viajes  ›',
+    // Sidebar
+    'sidebar-content': 'Contenido',
+    'sidebar-dashboard': '🏠 Dashboard',
+    'sidebar-contenido': '📄 Contenido',
+    'sidebar-destinos': '✈️ Destinos',
+    'sidebar-experiencias': '⭐ Experiencias',
+    'sidebar-blog': '📝 Blog',
+    'sidebar-consultas': '💬 Consultas',
+    'sidebar-system': 'Sistema',
+    'sidebar-settings': '⚙️ Configuración',
+    'sidebar-users': '👥 Usuarios',
 
-    // Por qué
-    'pq-title': '¿Por Qué Elegirnos?',
-    'pq1': 'Atención Personalizada',
-    'pq2': 'Viajes a tu Medida',
-    'pq3': 'Seguridad y Confianza',
-    'pq4': '20 Años de Experiencia',
+    // Settings
+    'settings-title': 'Configuración del sitio',
+    'settings-whatsapp': '📱 WhatsApp',
+    'settings-whatsapp-number': 'Número (sin + ni espacios)',
+    'settings-whatsapp-msg': 'Mensaje por defecto',
+    'settings-contact': '📬 Datos de contacto',
+    'settings-phone': 'Teléfono',
+    'settings-email': 'Email',
+    'settings-address': 'Dirección',
+    'settings-hours': 'Horario',
+    'settings-colors': '🎨 Colores del sitio',
+    'settings-color-gold': 'Dorado (acento)',
+    'settings-color-bg': 'Fondo general',
+    'settings-color-text': 'Texto principal',
+    'settings-color-primary': 'Color oscuro',
+    'settings-color-card': 'Fondo cards',
+    'settings-lang': '🌐 Idioma por defecto',
+    'settings-lang-desc': 'Idioma que ven los visitantes al entrar',
+    'settings-images': '🖼️ Imágenes del sitio',
+    'settings-logo': 'Logo del sitio',
+    'settings-hero': 'Imagen principal (Hero)',
+    'settings-upload-logo': '📷 Subir Logo',
+    'settings-upload-hero': '📷 Subir Imagen Hero',
+    'settings-no-logo': 'Sin logo personalizado',
+    'settings-default-hero': 'Usando imagen por defecto',
+    'settings-save': '💾 Guardar toda la configuración',
+    'settings-preview': '📱 Mostrar/Ocultar vista previa',
 
-    // Testimonios
-    'test-title': 'Testimonios de Nuestros Viajeros',
-    't1-name': 'Laura Gómez',   't1-text': '"Un viaje increíble, superado todas nuestras expectativas!"',
-    't2-name': 'Jorge Martin',  't2-text': '"Una experiencia inolvidable, atención de primera!"',
-    't3-name': 'Carmen Ruiz',   't3-text': '"Sin duda volveremos a viajar con ustades, todo perfecto."',
+    // Vista previa
+    'preview-title': '📋 Vista previa del sitio web',
+    'preview-refresh': '🔄 Actualizar',
+    'preview-close': '✕ Ocultar',
+    'preview-show': '📱 Mostrar vista previa',
+    'preview-hide': '📱 Ocultar vista previa',
 
-    // CTA
-    'cta-h':   'Solicitá información sobre tu próximo viaje',
-    'cta-p':   '¿Listo para tu próxima aventura? Contactanos y te ayudaremos a planear el viaje perfecto.',
-    'cta-btn': 'Solicitá información',
+    // Dashboard
+    'dash-title': 'Dashboard',
+    'dash-destinos': 'Destinos',
+    'dash-posts': 'Posts del blog',
+    'dash-consultas': 'Consultas',
+    'dash-no-read': 'sin leer',
+    'dash-settings': 'Configuración',
 
-    // Footer
-    'f-addr':  '1a1n Guallile neo Fia doloras',
-    'f-tel':   '+1 (442) 456-7825',
-    'f-email': 'info@lamaleta.com',
-    'f-hours': 'Lun–Vie 9:00–18:00',
+    // Messages
+    'msg-config-saved': '✅ Configuración guardada correctamente',
+    'msg-uploading-logo': '📤 Subiendo logo...',
+    'msg-uploading-hero': '📤 Subiendo imagen hero...',
+    'msg-logo-updated': '✅ Logo actualizado correctamente',
+    'msg-hero-updated': '✅ Imagen hero actualizada correctamente',
+    'msg-preview-loading': '📱 Cargando vista previa del sitio...',
+    'msg-preview-updating': '🔄 Actualizando vista previa...',
+    'msg-invalid-image': '❌ Por favor selecciona una imagen válida',
+    'msg-image-too-big': '❌ La imagen es muy grande. Máximo',
 
-    // UI labels
-    'lang-label': 'Idioma',
+    // Loading and status
+    'loading': 'Cargando...',
+    'dash-summary': 'Resumen del sitio',
+    'tip-content': '💡 Tip: Usá la sección "Contenido" para editar los textos del sitio en cada idioma.',
   },
 
   ca: {
-    'nav1':    'Destinacions',
-    'nav2':    'Experiències',
-    'nav3':    'Nosaltres',
-    'nav4':    'Blog',
-    'nav5':    'Contacte',
-    'nav-cta': 'Sol·licita informació',
+    // Login
+    'login-title': 'Panell d\'Administració',
+    'login-desc': 'Entra per gestionar el contingut del lloc',
+    'login-email': 'Email',
+    'login-password': 'Contrasenya',
+    'login-btn': 'Entrar',
 
-    'hero-h1':   'Organitzem els viatges<br>que sempre has somiat',
-    'hero-sub':  'Descobreix destinacions úniques amb un tracte proper i personalitzat',
-    'hero-btn1': 'Veure Destinacions',
-    'hero-btn2': 'Sobre Nosaltres',
+    // Top bar
+    'admin-cms': 'La Maleta CMS',
+    'btn-logout': 'Sortir',
 
-    'dest-title': 'Destinacions Destacades',
-    'd1-name': 'Noruega',   'd1-desc': '7 Dies, des de $1200', 'd1-btn': 'Veure més',
-    'd2-name': 'Japó',      'd2-desc': '7 Dies, des de $1200', 'd2-btn': 'Veure més',
-    'd3-name': 'Maldives',  'd3-desc': '7 Dies, des de $1200', 'd3-btn': 'Veure més',
-    'd4-name': 'Patagònia', 'd4-desc': '7 Dies, des de $1200', 'd4-btn': 'Veure més',
-    'ver-todos': 'Veure Tots els Viatges  ›',
+    // Sidebar
+    'sidebar-content': 'Contingut',
+    'sidebar-dashboard': '🏠 Tauler',
+    'sidebar-contenido': '📄 Contingut',
+    'sidebar-destinos': '✈️ Destinacions',
+    'sidebar-experiencias': '⭐ Experiències',
+    'sidebar-blog': '📝 Blog',
+    'sidebar-consultas': '💬 Consultes',
+    'sidebar-system': 'Sistema',
+    'sidebar-settings': '⚙️ Configuració',
+    'sidebar-users': '👥 Usuaris',
 
-    'pq-title': 'Per Què Triar-nos?',
-    'pq1': 'Atenció Personalitzada',
-    'pq2': 'Viatges a la teva Mida',
-    'pq3': 'Seguretat i Confiança',
-    'pq4': '20 Anys d\'Experiència',
+    // Settings
+    'settings-title': 'Configuració del lloc',
+    'settings-whatsapp': '📱 WhatsApp',
+    'settings-whatsapp-number': 'Número (sense + ni espais)',
+    'settings-whatsapp-msg': 'Missatge per defecte',
+    'settings-contact': '📬 Dades de contacte',
+    'settings-phone': 'Telèfon',
+    'settings-email': 'Email',
+    'settings-address': 'Adreça',
+    'settings-hours': 'Horari',
+    'settings-colors': '🎨 Colors del lloc',
+    'settings-color-gold': 'Daurat (accent)',
+    'settings-color-bg': 'Fons general',
+    'settings-color-text': 'Text principal',
+    'settings-color-primary': 'Color fosc',
+    'settings-color-card': 'Fons targetes',
+    'settings-lang': '🌐 Idioma per defecte',
+    'settings-lang-desc': 'Idioma que veuen els visitants en entrar',
+    'settings-images': '🖼️ Imatges del lloc',
+    'settings-logo': 'Logo del lloc',
+    'settings-hero': 'Imatge principal (Hero)',
+    'settings-upload-logo': '📷 Pujar Logo',
+    'settings-upload-hero': '📷 Pujar Imatge Hero',
+    'settings-no-logo': 'Sense logo personalitzat',
+    'settings-default-hero': 'Usant imatge per defecte',
+    'settings-save': '💾 Guardar tota la configuració',
+    'settings-preview': '📱 Mostrar/Ocultar vista prèvia',
 
-    'test-title': 'Testimonis dels Nostres Viatgers',
-    't1-name': 'Laura Gómez',   't1-text': '"Un viatge increïble, ha superat totes les nostres expectatives!"',
-    't2-name': 'Jordi Martín',  't2-text': '"Una experiència inoblidable, atenció de primera!"',
-    't3-name': 'Carme Ruiz',    't3-text': '"Sens dubte tornarem a viatjar amb vosaltres, tot perfecte."',
+    // Vista previa
+    'preview-title': '📋 Vista prèvia del lloc web',
+    'preview-refresh': '🔄 Actualitzar',
+    'preview-close': '✕ Ocultar',
+    'preview-show': '📱 Mostrar vista prèvia',
+    'preview-hide': '📱 Ocultar vista prèvia',
 
-    'cta-h':   'Sol·licita informació sobre el teu proper viatge',
-    'cta-p':   'Preparat per a la teva propera aventura? Contacta\'ns i t\'ajudarem a planificar el viatge perfecte.',
-    'cta-btn': 'Sol·licita informació',
+    // Dashboard
+    'dash-title': 'Tauler',
+    'dash-destinos': 'Destinacions',
+    'dash-posts': 'Posts del blog',
+    'dash-consultas': 'Consultes',
+    'dash-no-read': 'sense llegir',
+    'dash-settings': 'Configuració',
 
-    'f-addr':  '1a1n Guallile neo Fia doloras',
-    'f-tel':   '+1 (442) 456-7825',
-    'f-email': 'info@lamaleta.com',
-    'f-hours': 'Dl–Dv 9:00–18:00',
+    // Messages
+    'msg-config-saved': '✅ Configuració guardada correctament',
+    'msg-uploading-logo': '📤 Pujant logo...',
+    'msg-uploading-hero': '📤 Pujant imatge hero...',
+    'msg-logo-updated': '✅ Logo actualitzat correctament',
+    'msg-hero-updated': '✅ Imatge hero actualitzada correctament',
+    'msg-preview-loading': '📱 Carregant vista prèvia del lloc...',
+    'msg-preview-updating': '🔄 Actualitzant vista prèvia...',
+    'msg-invalid-image': '❌ Selecciona una imatge vàlida',
+    'msg-image-too-big': '❌ La imatge és massa gran. Màxim',
 
-    'lang-label': 'Idioma',
+    // Loading and status
+    'loading': 'Carregant...',
+    'dash-summary': 'Resum del lloc',
+    'tip-content': '💡 Tip: Utilitza la secció "Contingut" per editar els textos del lloc en cada idioma.',
   },
 
   en: {
-    'nav1':    'Destinations',
-    'nav2':    'Experiences',
-    'nav3':    'About Us',
-    'nav4':    'Blog',
-    'nav5':    'Contact',
-    'nav-cta': 'Request information',
+    // Login
+    'login-title': 'Administration Panel',
+    'login-desc': 'Login to manage site content',
+    'login-email': 'Email',
+    'login-password': 'Password',
+    'login-btn': 'Login',
 
-    'hero-h1':   'We organize the trips<br>you\'ve always dreamed of',
-    'hero-sub':  'Discover unique destinations with a personal and close-knit approach',
-    'hero-btn1': 'View Destinations',
-    'hero-btn2': 'About Us',
+    // Top bar
+    'admin-cms': 'La Maleta CMS',
+    'btn-logout': 'Logout',
 
-    'dest-title': 'Featured Destinations',
-    'd1-name': 'Norway',     'd1-desc': '7 Days, from $1200', 'd1-btn': 'View more',
-    'd2-name': 'Japan',      'd2-desc': '7 Days, from $1200', 'd2-btn': 'View more',
-    'd3-name': 'Maldives',   'd3-desc': '7 Days, from $1200', 'd3-btn': 'View more',
-    'd4-name': 'Patagonia',  'd4-desc': '7 Days, from $1200', 'd4-btn': 'View more',
-    'ver-todos': 'View All Trips  ›',
+    // Sidebar
+    'sidebar-content': 'Content',
+    'sidebar-dashboard': '🏠 Dashboard',
+    'sidebar-contenido': '📄 Content',
+    'sidebar-destinos': '✈️ Destinations',
+    'sidebar-experiencias': '⭐ Experiences',
+    'sidebar-blog': '📝 Blog',
+    'sidebar-consultas': '💬 Inquiries',
+    'sidebar-system': 'System',
+    'sidebar-settings': '⚙️ Settings',
+    'sidebar-users': '👥 Users',
 
-    'pq-title': 'Why Choose Us?',
-    'pq1': 'Personalized Attention',
-    'pq2': 'Tailor-Made Trips',
-    'pq3': 'Safety & Trust',
-    'pq4': '20 Years of Experience',
+    // Settings
+    'settings-title': 'Site settings',
+    'settings-whatsapp': '📱 WhatsApp',
+    'settings-whatsapp-number': 'Number (no + or spaces)',
+    'settings-whatsapp-msg': 'Default message',
+    'settings-contact': '📬 Contact details',
+    'settings-phone': 'Phone',
+    'settings-email': 'Email',
+    'settings-address': 'Address',
+    'settings-hours': 'Hours',
+    'settings-colors': '🎨 Site colors',
+    'settings-color-gold': 'Gold (accent)',
+    'settings-color-bg': 'General background',
+    'settings-color-text': 'Main text',
+    'settings-color-primary': 'Dark color',
+    'settings-color-card': 'Card background',
+    'settings-lang': '🌐 Default language',
+    'settings-lang-desc': 'Language visitors see when entering',
+    'settings-images': '🖼️ Site images',
+    'settings-logo': 'Site logo',
+    'settings-hero': 'Hero image',
+    'settings-upload-logo': '📷 Upload Logo',
+    'settings-upload-hero': '📷 Upload Hero Image',
+    'settings-no-logo': 'No custom logo',
+    'settings-default-hero': 'Using default image',
+    'settings-save': '💾 Save all settings',
+    'settings-preview': '📱 Show/Hide preview',
 
-    'test-title': 'What Our Travelers Say',
-    't1-name': 'Laura Gómez',  't1-text': '"An incredible trip, exceeded all our expectations!"',
-    't2-name': 'Jorge Martin', 't2-text': '"An unforgettable experience, first-class service!"',
-    't3-name': 'Carmen Ruiz',  't3-text': '"We will definitely travel with you again, absolutely perfect."',
+    // Vista previa
+    'preview-title': '📋 Website preview',
+    'preview-refresh': '🔄 Refresh',
+    'preview-close': '✕ Hide',
+    'preview-show': '📱 Show preview',
+    'preview-hide': '📱 Hide preview',
 
-    'cta-h':   'Request information about your next trip',
-    'cta-p':   'Ready for your next adventure? Contact us and we\'ll help you plan the perfect trip.',
-    'cta-btn': 'Request information',
+    // Dashboard
+    'dash-title': 'Dashboard',
+    'dash-destinos': 'Destinations',
+    'dash-posts': 'Blog posts',
+    'dash-consultas': 'Inquiries',
+    'dash-no-read': 'unread',
+    'dash-settings': 'Settings',
 
-    'f-addr':  '1a1n Guallile neo Fia doloras',
-    'f-tel':   '+1 (442) 456-7825',
-    'f-email': 'info@lamaleta.com',
-    'f-hours': 'Mon–Fri 9:00–18:00',
+    // Messages
+    'msg-config-saved': '✅ Settings saved successfully',
+    'msg-uploading-logo': '📤 Uploading logo...',
+    'msg-uploading-hero': '📤 Uploading hero image...',
+    'msg-logo-updated': '✅ Logo updated successfully',
+    'msg-hero-updated': '✅ Hero image updated successfully',
+    'msg-preview-loading': '📱 Loading site preview...',
+    'msg-preview-updating': '🔄 Updating preview...',
+    'msg-invalid-image': '❌ Please select a valid image',
+    'msg-image-too-big': '❌ Image too large. Maximum',
 
-    'lang-label': 'Language',
+    // Loading and status
+    'loading': 'Loading...',
+    'dash-summary': 'Site summary',
+    'tip-content': '💡 Tip: Use the "Content" section to edit site texts in each language.',
   }
 };
 
@@ -147,3 +262,8 @@ export const langMeta = {
   ca: { label: 'Català',   flag: '🏴', code: 'ca' },
   en: { label: 'English',  flag: '🇬🇧', code: 'en' },
 };
+
+// Helper para obtener traducciones
+export function t(key, lang = 'es') {
+  return translations[lang]?.[key] || translations['es']?.[key] || key;
+}
