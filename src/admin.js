@@ -355,18 +355,100 @@ async function renderExperiencias() {
     <div id="modal-exp" class="modal" style="display:none"></div>`;
 }
 
+// Helper para leer campo multilingual o string plano (compatibilidad hacia atrás)
+function mlVal(field, lang) {
+  if (!field) return '';
+  return typeof field === 'object' ? (field[lang] || field.es || '') : field;
+}
+
+window.expLang = function(lang) {
+  ['es','en','ca'].forEach(l => {
+    document.getElementById(`exp-tab-${l}`).classList.toggle('active', l === lang);
+    document.getElementById(`exp-fields-${l}`).style.display = l === lang ? '' : 'none';
+  });
+};
+
+async function traducir(texto, destLang) {
+  if (!texto) return '';
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(texto)}&langpair=es|${destLang}`;
+  const res = await fetch(url);
+  const json = await res.json();
+  return json.responseData?.translatedText || texto;
+}
+
+window.autoTraducirExp = async function() {
+  const nombreEs = document.getElementById("e-nombre-es").value.trim();
+  const descEs   = document.getElementById("e-desc-es").value.trim();
+
+  if (!nombreEs) {
+    document.getElementById("modal-exp-msg").textContent = "Completá primero el nombre en español.";
+    return;
+  }
+
+  const btn = document.querySelector('[onclick="autoTraducirExp()"]');
+  btn.textContent = "⏳ Traduciendo...";
+  btn.disabled = true;
+  document.getElementById("modal-exp-msg").textContent = "";
+
+  try {
+    const [nombreEn, nombreCa, descEn, descCa] = await Promise.all([
+      traducir(nombreEs, 'en'),
+      traducir(nombreEs, 'ca'),
+      traducir(descEs,   'en'),
+      traducir(descEs,   'ca'),
+    ]);
+
+    document.getElementById("e-nombre-en").value = nombreEn;
+    document.getElementById("e-nombre-ca").value = nombreCa;
+    document.getElementById("e-desc-en").value   = descEn;
+    document.getElementById("e-desc-ca").value   = descCa;
+
+    showToast("✅ Traducción completada");
+  } catch(err) {
+    document.getElementById("modal-exp-msg").textContent = "Error al traducir. Verificá tu conexión.";
+  } finally {
+    btn.textContent = "🌐 Auto-traducir";
+    btn.disabled = false;
+  }
+};
+
 window.abrirModalExp = function(e={}) {
+  const nombreEs = mlVal(e.nombre, 'es');
+  const nombreEn = mlVal(e.nombre, 'en');
+  const nombreCa = mlVal(e.nombre, 'ca');
+  const descEs   = mlVal(e.descripcion, 'es');
+  const descEn   = mlVal(e.descripcion, 'en');
+  const descCa   = mlVal(e.descripcion, 'ca');
+
   document.getElementById("modal-exp").style.display = "flex";
   document.getElementById("modal-exp").innerHTML = `
     <div class="modal-box">
       <div class="modal-header"><h3>${e.id?'Editar':'Nueva'} Experiencia</h3><button onclick="cerrarModal('modal-exp')">×</button></div>
       <div class="modal-body">
-        <div class="form-row-admin">
-          <div class="form-field"><label>Nombre *</label><input id="e-nombre" value="${e.nombre||''}" placeholder="Ej: Trekking en Patagonia"></div>
-          <div class="form-field"><label>Categoría</label><input id="e-cat" value="${e.categoria||''}" placeholder="Ej: Aventura"></div>
+
+        <div class="form-field"><label>Categoría</label><input id="e-cat" value="${e.categoria||''}" placeholder="Ej: Aventura"></div>
+
+        <div style="display:flex;gap:6px;margin:14px 0 10px;align-items:center;flex-wrap:wrap;">
+          <button id="exp-tab-es" class="btn-tab active" onclick="expLang('es')">🇪🇸 Español</button>
+          <button id="exp-tab-en" class="btn-tab"        onclick="expLang('en')">🇬🇧 English</button>
+          <button id="exp-tab-ca" class="btn-tab"        onclick="expLang('ca')">🏴 Català</button>
+          <button class="btn-upload" onclick="autoTraducirExp()" style="margin-left:auto">🌐 Auto-traducir</button>
         </div>
-        <div class="form-field"><label>Descripción</label><textarea id="e-desc" rows="3">${e.descripcion||''}</textarea></div>
-        <div class="form-field">
+
+        <div id="exp-fields-es">
+          <div class="form-field"><label>Nombre * (ES)</label><input id="e-nombre-es" value="${nombreEs}" placeholder="Ej: Trekking en Patagonia"></div>
+          <div class="form-field"><label>Descripción (ES)</label><textarea id="e-desc-es" rows="3">${descEs}</textarea></div>
+        </div>
+        <div id="exp-fields-en" style="display:none">
+          <div class="form-field"><label>Nombre (EN)</label><input id="e-nombre-en" value="${nombreEn}" placeholder="Ej: Patagonia Trekking"></div>
+          <div class="form-field"><label>Description (EN)</label><textarea id="e-desc-en" rows="3">${descEn}</textarea></div>
+        </div>
+        <div id="exp-fields-ca" style="display:none">
+          <div class="form-field"><label>Nom (CA)</label><input id="e-nombre-ca" value="${nombreCa}" placeholder="Ej: Trekking a la Patagònia"></div>
+          <div class="form-field"><label>Descripció (CA)</label><textarea id="e-desc-ca" rows="3">${descCa}</textarea></div>
+        </div>
+
+        <div class="form-field" style="margin-top:12px">
           <label>Imagen</label>
           <div style="display:flex;gap:10px;align-items:center;">
             <input id="e-img" value="${e.imagen||''}" placeholder="URL de imagen" style="flex:1">
@@ -399,12 +481,20 @@ window.editarExp = async function(id) {
 };
 
 window.guardarExp = async function(id) {
-  const nombre = document.getElementById("e-nombre").value.trim();
-  if(!nombre){ document.getElementById("modal-exp-msg").textContent="Nombre requerido"; return; }
+  const nombreEs = document.getElementById("e-nombre-es").value.trim();
+  if(!nombreEs){ document.getElementById("modal-exp-msg").textContent="Nombre en español requerido"; return; }
   const data = {
-    nombre,
+    nombre: {
+      es: nombreEs,
+      en: document.getElementById("e-nombre-en").value.trim(),
+      ca: document.getElementById("e-nombre-ca").value.trim(),
+    },
+    descripcion: {
+      es: document.getElementById("e-desc-es").value.trim(),
+      en: document.getElementById("e-desc-en").value.trim(),
+      ca: document.getElementById("e-desc-ca").value.trim(),
+    },
     categoria:   document.getElementById("e-cat").value.trim(),
-    descripcion: document.getElementById("e-desc").value.trim(),
     imagen:      document.getElementById("e-img").value.trim(),
     orden:       parseInt(document.getElementById("e-orden").value)||0,
     activo:      document.getElementById("e-activo").value === "true",
@@ -626,6 +716,7 @@ async function renderSettings() {
         <div class="cp-row"><label>${translate('settings-color-text')}</label> <input type="color" id="cp-text"  value="${s.text||'#3a3028'}" oninput="previewColor('--text',this.value)"></div>
         <div class="cp-row"><label>${translate('settings-color-primary')}</label>    <input type="color" id="cp-pri"   value="${s.primary||'#2c2416'}" oninput="previewColor('--primary',this.value)"></div>
         <div class="cp-row"><label>${translate('settings-color-card')}</label>     <input type="color" id="cp-card"  value="${s.cardBg||'#faf7f3'}" oninput="previewColor('--card-bg',this.value)"></div>
+        <button class="btn-secondary" onclick="resetColoresDefault()" style="margin-top:10px;font-size:13px;padding:7px 16px;">↺ Restaurar colores por defecto</button>
       </div>
       <div class="settings-card">
         <div class="settings-card-title">${translate('settings-lang')}</div>
@@ -687,6 +778,15 @@ async function renderSettings() {
 }
 
 window.previewColor = function(varName, val) { document.documentElement.style.setProperty(varName, val); };
+
+window.resetColoresDefault = function() {
+  const defaults = { 'cp-gold': '#b8924a', 'cp-bg': '#f5f0eb', 'cp-text': '#3a3028', 'cp-pri': '#2c2416', 'cp-card': '#faf7f3' };
+  const varMap   = { 'cp-gold': '--gold',  'cp-bg': '--bg',    'cp-text': '--text',  'cp-pri': '--primary', 'cp-card': '--card-bg' };
+  Object.entries(defaults).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el) { el.value = val; previewColor(varMap[id], val); }
+  });
+};
 
 window.guardarSettings = async function() {
   const currentSettings = await getSettings();
