@@ -182,14 +182,14 @@ async function renderDestinos() {
 
 window.abrirModalDestino = function(d={}) {
   const nombreEs = mlVal(d.nombre, 'es');
-  const nombreEn = mlVal(d.nombre, 'en');
-  const nombreCa = mlVal(d.nombre, 'ca');
+  const nombreEn = mlEdit(d.nombre, 'en');
+  const nombreCa = mlEdit(d.nombre, 'ca');
   const cortaEs  = mlVal(d.descripcionCorta, 'es');
-  const cortaEn  = mlVal(d.descripcionCorta, 'en');
-  const cortaCa  = mlVal(d.descripcionCorta, 'ca');
+  const cortaEn  = mlEdit(d.descripcionCorta, 'en');
+  const cortaCa  = mlEdit(d.descripcionCorta, 'ca');
   const descEs   = mlVal(d.descripcion, 'es');
-  const descEn   = mlVal(d.descripcion, 'en');
-  const descCa   = mlVal(d.descripcion, 'ca');
+  const descEn   = mlEdit(d.descripcion, 'en');
+  const descCa   = mlEdit(d.descripcion, 'ca');
 
   document.getElementById("modal-destino").style.display = "flex";
   document.getElementById("modal-destino").innerHTML = `
@@ -403,6 +403,15 @@ function mlVal(field, lang) {
   return typeof field === 'object' ? (field[lang] || field.es || '') : field;
 }
 
+// Igual que mlVal pero sin fallback a español — para precargar los campos
+// de edición, así una traducción faltante se ve vacía en vez de mostrar
+// el texto en español disfrazado de traducción.
+function mlEdit(field, lang) {
+  if (!field) return '';
+  if (typeof field === 'object') return field[lang] || '';
+  return lang === 'es' ? field : '';
+}
+
 window.expLang = function(lang) {
   ['es','en','ca'].forEach(l => {
     document.getElementById(`exp-tab-${l}`).classList.toggle('active', l === lang);
@@ -547,11 +556,11 @@ window.autoTraducirExp = async function() {
 
 window.abrirModalExp = function(e={}) {
   const nombreEs = mlVal(e.nombre, 'es');
-  const nombreEn = mlVal(e.nombre, 'en');
-  const nombreCa = mlVal(e.nombre, 'ca');
+  const nombreEn = mlEdit(e.nombre, 'en');
+  const nombreCa = mlEdit(e.nombre, 'ca');
   const descEs   = mlVal(e.descripcion, 'es');
-  const descEn   = mlVal(e.descripcion, 'en');
-  const descCa   = mlVal(e.descripcion, 'ca');
+  const descEn   = mlEdit(e.descripcion, 'en');
+  const descCa   = mlEdit(e.descripcion, 'ca');
 
   document.getElementById("modal-exp").style.display = "flex";
   document.getElementById("modal-exp").innerHTML = `
@@ -682,14 +691,14 @@ async function renderBlog() {
 
 window.abrirModalPost = function(p={}) {
   const tituloEs   = mlVal(p.titulo,   'es');
-  const tituloEn   = mlVal(p.titulo,   'en');
-  const tituloCa   = mlVal(p.titulo,   'ca');
+  const tituloEn   = mlEdit(p.titulo,   'en');
+  const tituloCa   = mlEdit(p.titulo,   'ca');
   const resumenEs  = mlVal(p.resumen,  'es');
-  const resumenEn  = mlVal(p.resumen,  'en');
-  const resumenCa  = mlVal(p.resumen,  'ca');
+  const resumenEn  = mlEdit(p.resumen,  'en');
+  const resumenCa  = mlEdit(p.resumen,  'ca');
   const contenidoEs = mlVal(p.contenido, 'es');
-  const contenidoEn = mlVal(p.contenido, 'en');
-  const contenidoCa = mlVal(p.contenido, 'ca');
+  const contenidoEn = mlEdit(p.contenido, 'en');
+  const contenidoCa = mlEdit(p.contenido, 'ca');
 
   document.getElementById("modal-post").style.display = "flex";
   document.getElementById("modal-post").innerHTML = `
