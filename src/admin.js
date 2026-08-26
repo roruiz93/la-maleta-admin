@@ -14,7 +14,7 @@ import {
   getPosts, getPost, savePost, deletePost,
   getConsultas, marcarLeida, uploadImage
 } from "./firebase.js";
-import { translations, langMeta, t } from "./i18n.js";
+import { translations, langMeta, t, tf } from "./i18n.js";
 
 import { auth } from "./firebase-config";
 const WEB_URL = import.meta.env.VITE_WEB_URL || "https://lamaleta.vercel.app";
@@ -159,8 +159,8 @@ async function renderDestinos() {
   const items = await getDestinos();
   document.getElementById("section-content").innerHTML = `
     <div class="sec-header">
-      <h2>Destinos</h2>
-      <button class="btn-primary" onclick="abrirModalDestino()">+ Nuevo destino</button>
+      <h2>${t('destinos-title',currentLang)}</h2>
+      <button class="btn-primary" onclick="abrirModalDestino()">${t('destinos-new',currentLang)}</button>
     </div>
     <div class="items-list">
       ${items.length ? items.map(d=>`
@@ -171,11 +171,11 @@ async function renderDestinos() {
             <span>${d.categoria||''} · ${d.duracion||''} · desde $${(d.precio||0).toLocaleString()}</span>
           </div>
           <div class="item-actions">
-            <span class="badge-status ${d.activo!==false?'activo':'inactivo'}">${d.activo!==false?'Activo':'Oculto'}</span>
-            <button class="btn-edit" onclick="editarDestino('${d.id}')">✏️ Editar</button>
-            <button class="btn-del"  onclick="eliminarDestino('${d.id}','${mlVal(d.nombre,'es')}')">🗑</button>
+            <span class="badge-status ${d.activo!==false?'activo':'inactivo'}">${d.activo!==false?t('common-active',currentLang):t('common-hidden',currentLang)}</span>
+            <button class="btn-edit" onclick="editarDestino('${d.id}')">✏️ ${t('common-edit',currentLang)}</button>
+            <button class="btn-del"  onclick="eliminarDestino('${d.id}','${mlVal(d.nombre,'es').replace(/'/g,"\\'")}')">🗑</button>
           </div>
-        </div>`).join("") : '<div class="empty-state-admin">No hay destinos. ¡Creá el primero!</div>'}
+        </div>`).join("") : `<div class="empty-state-admin">${t('destinos-empty',currentLang)}</div>`}
     </div>
     <div id="modal-destino" class="modal" style="display:none"></div>`;
 }
@@ -195,21 +195,21 @@ window.abrirModalDestino = function(d={}) {
   document.getElementById("modal-destino").innerHTML = `
     <div class="modal-box">
       <div class="modal-header">
-        <h3>${d.id?'Editar':'Nuevo'} Destino</h3>
+        <h3>${d.id?t('destinos-modal-edit',currentLang):t('destinos-modal-new',currentLang)}</h3>
         <button onclick="cerrarModal('modal-destino')">×</button>
       </div>
       <div class="modal-body">
         <div class="form-row-admin">
-          <div class="form-field"><label>Categoría</label><input id="d-cat" value="${d.categoria||''}" placeholder="Ej: Europa"></div>
-          <div class="form-field"><label>Precio (USD)</label><input id="d-precio" type="number" value="${d.precio||''}" placeholder="1200"></div>
-          <div class="form-field"><label>Duración</label><input id="d-dur" value="${d.duracion||''}" placeholder="Ej: 7 días"></div>
+          <div class="form-field"><label>${t('common-category',currentLang)}</label><input id="d-cat" value="${d.categoria||''}" placeholder="Ej: Europa"></div>
+          <div class="form-field"><label>${t('destinos-price',currentLang)}</label><input id="d-precio" type="number" value="${d.precio||''}" placeholder="1200"></div>
+          <div class="form-field"><label>${t('destinos-duration',currentLang)}</label><input id="d-dur" value="${d.duracion||''}" placeholder="Ej: 7 días"></div>
         </div>
 
         <div style="display:flex;gap:6px;margin:14px 0 10px;align-items:center;flex-wrap:wrap;">
           <button id="dest-tab-es" class="btn-tab active" onclick="destLang('es')">🇪🇸 Español</button>
           <button id="dest-tab-en" class="btn-tab"        onclick="destLang('en')">🇬🇧 English</button>
           <button id="dest-tab-ca" class="btn-tab"        onclick="destLang('ca')">🏴 Català</button>
-          <button class="btn-upload" onclick="autoTraducirDest()" style="margin-left:auto">🌐 Auto-traducir</button>
+          <button class="btn-upload" onclick="autoTraducirDest()" style="margin-left:auto">${t('common-auto-translate',currentLang)}</button>
         </div>
 
         <div id="dest-fields-es">
@@ -229,37 +229,37 @@ window.abrirModalDestino = function(d={}) {
         </div>
 
         <div class="form-field">
-          <label>Imágenes del destino</label>
+          <label>${t('destinos-images-label',currentLang)}</label>
           <div style="display:flex;gap:10px;align-items:center;">
             <input type="file" id="d-img-file" multiple accept="image/*" style="display:none" onchange="subirImgDestino(event)">
-            <button class="btn-upload" onclick="document.getElementById('d-img-file').click()">📷 Subir imágenes</button>
+            <button class="btn-upload" onclick="document.getElementById('d-img-file').click()">${t('destinos-upload-images',currentLang)}</button>
           </div>
           <div id="d-img-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
             ${(d.imagenes&&d.imagenes.length>0) ? d.imagenes.map((img,index)=>`
               <div class="img-container" style="position:relative;width:80px;height:80px;border-radius:6px;overflow:hidden;cursor:pointer;">
                 <img src="${img}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:${d.imagen===img?'3px solid #b8924a':'none'}">
                 <span style="position:absolute;top:2px;right:2px;background:red;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-weight:bold;cursor:pointer;font-size:11px;" onclick="removeImage(${index})">x</span>
-                <span style="position:absolute;bottom:2px;left:2px;background:#b8924a;color:white;border-radius:4px;padding:2px 4px;font-size:9px;cursor:pointer;" onclick="setPrincipal(${index})">Principal</span>
+                <span style="position:absolute;bottom:2px;left:2px;background:#b8924a;color:white;border-radius:4px;padding:2px 4px;font-size:9px;cursor:pointer;" onclick="setPrincipal(${index})">${t('destinos-principal-badge',currentLang)}</span>
               </div>`).join("")
             : (d.imagen ? `<div style="position:relative;width:80px;height:80px;border-radius:6px;overflow:hidden;"><img src="${d.imagen}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;"></div>` : "")}
           </div>
         </div>
         <div class="form-field">
-          <label>¿Qué incluye? (una por línea)</label>
+          <label>${t('destinos-includes-label',currentLang)}</label>
           <textarea id="d-incluye" rows="4" placeholder="Vuelos internacionales&#10;Hotel 4 estrellas&#10;Traslados">${(d.incluye||[]).join('\n')}</textarea>
         </div>
         <div class="form-row-admin">
-          <div class="form-field"><label>Orden</label><input id="d-orden" type="number" value="${d.orden||0}"></div>
-          <div class="form-field"><label>Estado</label>
+          <div class="form-field"><label>${t('common-order',currentLang)}</label><input id="d-orden" type="number" value="${d.orden||0}"></div>
+          <div class="form-field"><label>${t('common-status',currentLang)}</label>
             <select id="d-activo">
-              <option value="true"  ${d.activo!==false?'selected':''}>Activo (visible)</option>
-              <option value="false" ${d.activo===false?'selected':''}>Oculto</option>
+              <option value="true"  ${d.activo!==false?'selected':''}>${t('common-active',currentLang)}</option>
+              <option value="false" ${d.activo===false?'selected':''}>${t('common-hidden',currentLang)}</option>
             </select>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-secondary" onclick="cerrarModal('modal-destino')">Cancelar</button>
-          <button class="btn-primary" onclick="guardarDestino('${d.id||''}')">💾 Guardar</button>
+          <button class="btn-secondary" onclick="cerrarModal('modal-destino')">${t('common-cancel',currentLang)}</button>
+          <button class="btn-primary" onclick="guardarDestino('${d.id||''}')">${t('common-save',currentLang)}</button>
         </div>
         <div id="modal-msg" style="margin-top:10px;font-size:13px;"></div>
       </div>
@@ -292,7 +292,7 @@ function renderImagenes() {
     };
     div.appendChild(removeBtn);
     const badge = document.createElement("span");
-    badge.textContent = src === imagenPrincipal ? "✓ Principal" : "Principal";
+    badge.textContent = (src === imagenPrincipal ? "✓ " : "") + t('destinos-principal-badge',currentLang);
     badge.style.cssText = `position:absolute;bottom:2px;left:2px;background:${src===imagenPrincipal?"#27ae60":"#b8924a"};color:white;border-radius:4px;padding:2px 5px;font-size:9px;cursor:pointer;`;
     badge.onclick = () => { imagenPrincipal = src; renderImagenes(); };
     div.appendChild(badge);
@@ -308,7 +308,7 @@ function getImagenesOrdenadas() {
 window.subirImgDestino = async (e) => {
   const files = e.target.files;
   if (!files || files.length === 0) return;
-  showToast("⏳ Subiendo imágenes...", false);
+  showToast(t('destinos-uploading-toast',currentLang), false);
   for (let file of files) {
     try {
       const url = await uploadImage(file);
@@ -317,12 +317,12 @@ window.subirImgDestino = async (e) => {
       renderImagenes();
     } catch (err) { console.error(err); }
   }
-  showToast("📷 Imágenes subidas");
+  showToast(t('destinos-uploaded-toast',currentLang));
 };
 
 window.guardarDestino = async function(id) {
   const nombreEs = document.getElementById("d-nombre-es").value.trim();
-  if (!nombreEs) { document.getElementById("modal-msg").textContent = "El nombre en español es requerido"; return; }
+  if (!nombreEs) { document.getElementById("modal-msg").textContent = t('destinos-name-required',currentLang); return; }
   const data = {
     nombre: {
       es: nombreEs,
@@ -352,9 +352,9 @@ window.guardarDestino = async function(id) {
   try {
     await saveDestino(newId, data);
     cerrarModal("modal-destino");
-    showToast("✅ Destino guardado");
+    showToast(t('destinos-saved-toast',currentLang));
     renderDestinos();
-  } catch (e) { document.getElementById("modal-msg").textContent = "Error: " + e.message; }
+  } catch (e) { document.getElementById("modal-msg").textContent = t('common-error',currentLang) + ": " + e.message; }
 };
 
 window.editarDestino = async function(id) {
@@ -368,9 +368,9 @@ window.editarDestino = async function(id) {
 };
 
 window.eliminarDestino = async function(id, nombre) {
-  if (!confirm(`¿Eliminar "${nombre}"?`)) return;
+  if (!confirm(tf('common-delete-confirm',currentLang,{name:nombre}))) return;
   await deleteDestino(id);
-  showToast("🗑 Destino eliminado");
+  showToast(t('destinos-deleted-toast',currentLang));
   renderDestinos();
 };
 
@@ -379,20 +379,20 @@ async function renderExperiencias() {
   const items = await getExperiencias();
   document.getElementById("section-content").innerHTML = `
     <div class="sec-header">
-      <h2>Experiencias</h2>
-      <button class="btn-primary" onclick="abrirModalExp()">+ Nueva experiencia</button>
+      <h2>${t('exp-title',currentLang)}</h2>
+      <button class="btn-primary" onclick="abrirModalExp()">${t('exp-new',currentLang)}</button>
     </div>
     <div class="items-list">
       ${items.length ? items.map(e=>`
         <div class="item-row">
-          <img src="${e.imagen||'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=100&q=60'}" class="item-thumb" alt="${e.nombre}">
-          <div class="item-info"><strong>${e.nombre}</strong><span>${e.categoria||''}</span></div>
+          <img src="${e.imagen||'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=100&q=60'}" class="item-thumb" alt="${mlVal(e.nombre,'es')}">
+          <div class="item-info"><strong>${mlVal(e.nombre,'es')}</strong><span>${e.categoria||''}</span></div>
           <div class="item-actions">
-            <span class="badge-status ${e.activo!==false?'activo':'inactivo'}">${e.activo!==false?'Activo':'Oculto'}</span>
-            <button class="btn-edit" onclick="editarExp('${e.id}')">✏️ Editar</button>
-            <button class="btn-del"  onclick="eliminarExp('${e.id}','${e.nombre}')">🗑</button>
+            <span class="badge-status ${e.activo!==false?'activo':'inactivo'}">${e.activo!==false?t('common-active',currentLang):t('common-hidden',currentLang)}</span>
+            <button class="btn-edit" onclick="editarExp('${e.id}')">✏️ ${t('common-edit',currentLang)}</button>
+            <button class="btn-del"  onclick="eliminarExp('${e.id}','${mlVal(e.nombre,'es').replace(/'/g,"\\'")}')">🗑</button>
           </div>
-        </div>`).join("") : '<div class="empty-state-admin">No hay experiencias. ¡Creá la primera!</div>'}
+        </div>`).join("") : `<div class="empty-state-admin">${t('exp-empty',currentLang)}</div>`}
     </div>
     <div id="modal-exp" class="modal" style="display:none"></div>`;
 }
@@ -438,12 +438,12 @@ window.autoTraducirPost = async function() {
   const resumenEs = document.getElementById("p-resumen-es").value.trim();
 
   if (!tituloEs) {
-    document.getElementById("modal-post-msg").textContent = "Completá primero el título en español.";
+    document.getElementById("modal-post-msg").textContent = t('blog-fill-title-first',currentLang);
     return;
   }
 
   const btn = document.querySelector('[onclick="autoTraducirPost()"]');
-  btn.textContent = "⏳ Traduciendo...";
+  btn.textContent = t('common-translating',currentLang);
   btn.disabled = true;
   document.getElementById("modal-post-msg").textContent = "";
 
@@ -460,11 +460,11 @@ window.autoTraducirPost = async function() {
     document.getElementById("p-resumen-en").value = resumenEn;
     document.getElementById("p-resumen-ca").value = resumenCa;
 
-    showToast("✅ Título y resumen traducidos. El contenido traducilo manualmente.");
+    showToast(t('blog-translated-toast',currentLang));
   } catch(err) {
-    document.getElementById("modal-post-msg").textContent = "Error al traducir. Verificá tu conexión.";
+    document.getElementById("modal-post-msg").textContent = t('common-translate-error',currentLang);
   } finally {
-    btn.textContent = "🌐 Auto-traducir";
+    btn.textContent = t('common-auto-translate',currentLang);
     btn.disabled = false;
   }
 };
@@ -475,12 +475,12 @@ window.autoTraducirDest = async function() {
   const descEs   = document.getElementById("d-desc-es").value.trim();
 
   if (!nombreEs) {
-    document.getElementById("modal-msg").textContent = "Completá primero el nombre en español.";
+    document.getElementById("modal-msg").textContent = t('common-fill-name-first',currentLang);
     return;
   }
 
   const btn = document.querySelector('[onclick="autoTraducirDest()"]');
-  btn.textContent = "⏳ Traduciendo...";
+  btn.textContent = t('common-translating',currentLang);
   btn.disabled = true;
   document.getElementById("modal-msg").textContent = "";
 
@@ -501,11 +501,11 @@ window.autoTraducirDest = async function() {
     document.getElementById("d-desc-en").value     = descEn;
     document.getElementById("d-desc-ca").value     = descCa;
 
-    showToast("✅ Traducción completada");
+    showToast(t('common-translated-toast',currentLang));
   } catch(err) {
-    document.getElementById("modal-msg").textContent = "Error al traducir. Verificá tu conexión.";
+    document.getElementById("modal-msg").textContent = t('common-translate-error',currentLang);
   } finally {
-    btn.textContent = "🌐 Auto-traducir";
+    btn.textContent = t('common-auto-translate',currentLang);
     btn.disabled = false;
   }
 };
@@ -523,12 +523,12 @@ window.autoTraducirExp = async function() {
   const descEs   = document.getElementById("e-desc-es").value.trim();
 
   if (!nombreEs) {
-    document.getElementById("modal-exp-msg").textContent = "Completá primero el nombre en español.";
+    document.getElementById("modal-exp-msg").textContent = t('common-fill-name-first',currentLang);
     return;
   }
 
   const btn = document.querySelector('[onclick="autoTraducirExp()"]');
-  btn.textContent = "⏳ Traduciendo...";
+  btn.textContent = t('common-translating',currentLang);
   btn.disabled = true;
   document.getElementById("modal-exp-msg").textContent = "";
 
@@ -545,11 +545,11 @@ window.autoTraducirExp = async function() {
     document.getElementById("e-desc-en").value   = descEn;
     document.getElementById("e-desc-ca").value   = descCa;
 
-    showToast("✅ Traducción completada");
+    showToast(t('common-translated-toast',currentLang));
   } catch(err) {
-    document.getElementById("modal-exp-msg").textContent = "Error al traducir. Verificá tu conexión.";
+    document.getElementById("modal-exp-msg").textContent = t('common-translate-error',currentLang);
   } finally {
-    btn.textContent = "🌐 Auto-traducir";
+    btn.textContent = t('common-auto-translate',currentLang);
     btn.disabled = false;
   }
 };
@@ -565,16 +565,16 @@ window.abrirModalExp = function(e={}) {
   document.getElementById("modal-exp").style.display = "flex";
   document.getElementById("modal-exp").innerHTML = `
     <div class="modal-box">
-      <div class="modal-header"><h3>${e.id?'Editar':'Nueva'} Experiencia</h3><button onclick="cerrarModal('modal-exp')">×</button></div>
+      <div class="modal-header"><h3>${e.id?t('exp-modal-edit',currentLang):t('exp-modal-new',currentLang)}</h3><button onclick="cerrarModal('modal-exp')">×</button></div>
       <div class="modal-body">
 
-        <div class="form-field"><label>Categoría</label><input id="e-cat" value="${e.categoria||''}" placeholder="Ej: Aventura"></div>
+        <div class="form-field"><label>${t('common-category',currentLang)}</label><input id="e-cat" value="${e.categoria||''}" placeholder="Ej: Aventura"></div>
 
         <div style="display:flex;gap:6px;margin:14px 0 10px;align-items:center;flex-wrap:wrap;">
           <button id="exp-tab-es" class="btn-tab active" onclick="expLang('es')">🇪🇸 Español</button>
           <button id="exp-tab-en" class="btn-tab"        onclick="expLang('en')">🇬🇧 English</button>
           <button id="exp-tab-ca" class="btn-tab"        onclick="expLang('ca')">🏴 Català</button>
-          <button class="btn-upload" onclick="autoTraducirExp()" style="margin-left:auto">🌐 Auto-traducir</button>
+          <button class="btn-upload" onclick="autoTraducirExp()" style="margin-left:auto">${t('common-auto-translate',currentLang)}</button>
         </div>
 
         <div id="exp-fields-es">
@@ -591,25 +591,25 @@ window.abrirModalExp = function(e={}) {
         </div>
 
         <div class="form-field" style="margin-top:12px">
-          <label>Imagen</label>
+          <label>${t('common-image',currentLang)}</label>
           <div style="display:flex;gap:10px;align-items:center;">
             <input id="e-img" value="${e.imagen||''}" placeholder="URL de imagen" style="flex:1">
             <input type="file" id="e-img-file" accept="image/*" style="display:none" onchange="subirImgExp(event)">
-            <button class="btn-upload" onclick="document.getElementById('e-img-file').click()">📷 Subir</button>
+            <button class="btn-upload" onclick="document.getElementById('e-img-file').click()">${t('exp-upload',currentLang)}</button>
           </div>
         </div>
         <div class="form-row-admin">
-          <div class="form-field"><label>Orden</label><input id="e-orden" type="number" value="${e.orden||0}"></div>
-          <div class="form-field"><label>Estado</label>
+          <div class="form-field"><label>${t('common-order',currentLang)}</label><input id="e-orden" type="number" value="${e.orden||0}"></div>
+          <div class="form-field"><label>${t('common-status',currentLang)}</label>
             <select id="e-activo">
-              <option value="true" ${e.activo!==false?'selected':''}>Activo</option>
-              <option value="false" ${e.activo===false?'selected':''}>Oculto</option>
+              <option value="true" ${e.activo!==false?'selected':''}>${t('common-active',currentLang)}</option>
+              <option value="false" ${e.activo===false?'selected':''}>${t('common-hidden',currentLang)}</option>
             </select>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-secondary" onclick="cerrarModal('modal-exp')">Cancelar</button>
-          <button class="btn-primary" onclick="guardarExp('${e.id||''}')">💾 Guardar</button>
+          <button class="btn-secondary" onclick="cerrarModal('modal-exp')">${t('common-cancel',currentLang)}</button>
+          <button class="btn-primary" onclick="guardarExp('${e.id||''}')">${t('common-save',currentLang)}</button>
         </div>
         <div id="modal-exp-msg" style="margin-top:10px;font-size:13px;"></div>
       </div>
@@ -624,7 +624,7 @@ window.editarExp = async function(id) {
 
 window.guardarExp = async function(id) {
   const nombreEs = document.getElementById("e-nombre-es").value.trim();
-  if(!nombreEs){ document.getElementById("modal-exp-msg").textContent="Nombre en español requerido"; return; }
+  if(!nombreEs){ document.getElementById("modal-exp-msg").textContent=t('exp-name-required',currentLang); return; }
   const data = {
     nombre: {
       es: nombreEs,
@@ -645,22 +645,22 @@ window.guardarExp = async function(id) {
   try {
     await saveExperiencia(newId, data);
     cerrarModal("modal-exp");
-    showToast("✅ Experiencia guardada");
+    showToast(t('exp-saved-toast',currentLang));
     renderExperiencias();
-  } catch(e) { document.getElementById("modal-exp-msg").textContent = "Error: " + e.message; }
+  } catch(e) { document.getElementById("modal-exp-msg").textContent = t('common-error',currentLang) + ": " + e.message; }
 };
 
 window.subirImgExp = async function(e) {
   const file = e.target.files[0]; if(!file) return;
   const url = await uploadImage(file);
   document.getElementById("e-img").value = url;
-  showToast("📷 Imagen subida");
+  showToast(t('exp-image-uploaded-toast',currentLang));
 };
 
 window.eliminarExp = async function(id, nombre) {
-  if(!confirm(`¿Eliminar "${nombre}"?`)) return;
+  if(!confirm(tf('common-delete-confirm',currentLang,{name:nombre}))) return;
   await deleteExperiencia(id);
-  showToast("🗑 Eliminada"); renderExperiencias();
+  showToast(t('exp-deleted-toast',currentLang)); renderExperiencias();
 };
 
 // ─── BLOG ─────────────────────────────────────────────────
@@ -668,8 +668,8 @@ async function renderBlog() {
   const posts = await getPosts(false);
   document.getElementById("section-content").innerHTML = `
     <div class="sec-header">
-      <h2>Blog</h2>
-      <button class="btn-primary" onclick="abrirModalPost()">+ Nuevo post</button>
+      <h2>${t('blog-title',currentLang)}</h2>
+      <button class="btn-primary" onclick="abrirModalPost()">${t('blog-new',currentLang)}</button>
     </div>
     <div class="items-list">
       ${posts.length ? posts.map(p=>`
@@ -677,14 +677,14 @@ async function renderBlog() {
           <img src="${p.imagen||'https://images.unsplash.com/photo-1488085061387-422e29b40080?w=100&q=60'}" class="item-thumb" alt="${mlVal(p.titulo,'es')}">
           <div class="item-info">
             <strong>${mlVal(p.titulo,'es')}</strong>
-            <span>${p.categoria||''} · ${formatFecha(p.fecha)} · por ${p.autor||'—'}</span>
+            <span>${p.categoria||''} · ${formatFecha(p.fecha)} · ${t('blog-by',currentLang)} ${p.autor||'—'}</span>
           </div>
           <div class="item-actions">
-            <span class="badge-status ${p.publicado?'activo':'inactivo'}">${p.publicado?'Publicado':'Borrador'}</span>
-            <button class="btn-edit" onclick="editarPost('${p.id}')">✏️ Editar</button>
-            <button class="btn-del"  onclick="eliminarPost('${p.id}','${mlVal(p.titulo,'es')}')">🗑</button>
+            <span class="badge-status ${p.publicado?'activo':'inactivo'}">${p.publicado?t('blog-published',currentLang):t('blog-draft',currentLang)}</span>
+            <button class="btn-edit" onclick="editarPost('${p.id}')">✏️ ${t('common-edit',currentLang)}</button>
+            <button class="btn-del"  onclick="eliminarPost('${p.id}','${mlVal(p.titulo,'es').replace(/'/g,"\\'")}')">🗑</button>
           </div>
-        </div>`).join("") : '<div class="empty-state-admin">No hay posts. ¡Escribí el primero!</div>'}
+        </div>`).join("") : `<div class="empty-state-admin">${t('blog-empty',currentLang)}</div>`}
     </div>
     <div id="modal-post" class="modal" style="display:none"></div>`;
 }
@@ -703,18 +703,18 @@ window.abrirModalPost = function(p={}) {
   document.getElementById("modal-post").style.display = "flex";
   document.getElementById("modal-post").innerHTML = `
     <div class="modal-box modal-wide">
-      <div class="modal-header"><h3>${p.id?'Editar':'Nuevo'} Post</h3><button onclick="cerrarModal('modal-post')">×</button></div>
+      <div class="modal-header"><h3>${p.id?t('blog-modal-edit',currentLang):t('blog-modal-new',currentLang)}</h3><button onclick="cerrarModal('modal-post')">×</button></div>
       <div class="modal-body">
         <div class="form-row-admin">
-          <div class="form-field"><label>Categoría</label><input id="p-cat" value="${p.categoria||''}" placeholder="Ej: Guías de viaje"></div>
-          <div class="form-field"><label>Autor</label><input id="p-autor" value="${p.autor||CU.name}" placeholder="Nombre del autor"></div>
+          <div class="form-field"><label>${t('common-category',currentLang)}</label><input id="p-cat" value="${p.categoria||''}" placeholder="Ej: Guías de viaje"></div>
+          <div class="form-field"><label>${t('blog-author',currentLang)}</label><input id="p-autor" value="${p.autor||CU.name}" placeholder="Nombre del autor"></div>
         </div>
         <div class="form-field">
-          <label>Imagen de portada</label>
+          <label>${t('blog-cover-image',currentLang)}</label>
           <div style="display:flex;gap:10px;align-items:center;">
             <input id="p-img" value="${p.imagen||''}" placeholder="URL de imagen" style="flex:1">
             <input type="file" id="p-img-file" accept="image/*" style="display:none" onchange="subirImgPost(event)">
-            <button class="btn-upload" onclick="document.getElementById('p-img-file').click()">📷 Subir</button>
+            <button class="btn-upload" onclick="document.getElementById('p-img-file').click()">${t('exp-upload',currentLang)}</button>
           </div>
         </div>
 
@@ -722,7 +722,7 @@ window.abrirModalPost = function(p={}) {
           <button id="post-tab-es" class="btn-tab active" onclick="postLang('es')">🇪🇸 Español</button>
           <button id="post-tab-en" class="btn-tab"        onclick="postLang('en')">🇬🇧 English</button>
           <button id="post-tab-ca" class="btn-tab"        onclick="postLang('ca')">🏴 Català</button>
-          <button class="btn-upload" onclick="autoTraducirPost()" style="margin-left:auto">🌐 Auto-traducir</button>
+          <button class="btn-upload" onclick="autoTraducirPost()" style="margin-left:auto">${t('common-auto-translate',currentLang)}</button>
         </div>
 
         <div id="post-fields-es">
@@ -769,17 +769,17 @@ window.abrirModalPost = function(p={}) {
         </div>
 
         <div class="form-row-admin" style="margin-top:12px">
-          <div class="form-field"><label>Fecha</label><input id="p-fecha" type="date" value="${p.fecha?p.fecha.slice(0,10):new Date().toISOString().slice(0,10)}"></div>
-          <div class="form-field"><label>Estado</label>
+          <div class="form-field"><label>${t('blog-date',currentLang)}</label><input id="p-fecha" type="date" value="${p.fecha?p.fecha.slice(0,10):new Date().toISOString().slice(0,10)}"></div>
+          <div class="form-field"><label>${t('common-status',currentLang)}</label>
             <select id="p-pub">
-              <option value="true"  ${p.publicado?'selected':''}>Publicado</option>
-              <option value="false" ${!p.publicado?'selected':''}>Borrador</option>
+              <option value="true"  ${p.publicado?'selected':''}>${t('blog-published',currentLang)}</option>
+              <option value="false" ${!p.publicado?'selected':''}>${t('blog-draft',currentLang)}</option>
             </select>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-secondary" onclick="cerrarModal('modal-post')">Cancelar</button>
-          <button class="btn-primary" onclick="guardarPost('${p.id||''}')">💾 Guardar</button>
+          <button class="btn-secondary" onclick="cerrarModal('modal-post')">${t('common-cancel',currentLang)}</button>
+          <button class="btn-primary" onclick="guardarPost('${p.id||''}')">${t('common-save',currentLang)}</button>
         </div>
         <div id="modal-post-msg" style="margin-top:10px;font-size:13px;"></div>
       </div>
@@ -792,7 +792,7 @@ window.editarPost = async function(id) {
 
 window.guardarPost = async function(id) {
   const tituloEs = document.getElementById("p-titulo-es").value.trim();
-  if(!tituloEs){ document.getElementById("modal-post-msg").textContent="Título en español requerido"; return; }
+  if(!tituloEs){ document.getElementById("modal-post-msg").textContent=t('blog-title-required',currentLang); return; }
   const data = {
     titulo: {
       es: tituloEs,
@@ -819,22 +819,22 @@ window.guardarPost = async function(id) {
   try {
     await savePost(newId, data);
     cerrarModal("modal-post");
-    showToast("✅ Post guardado");
+    showToast(t('blog-saved-toast',currentLang));
     renderBlog();
-  } catch(e) { document.getElementById("modal-post-msg").textContent = "Error: " + e.message; }
+  } catch(e) { document.getElementById("modal-post-msg").textContent = t('common-error',currentLang) + ": " + e.message; }
 };
 
 window.subirImgPost = async function(e) {
   const file = e.target.files[0]; if(!file) return;
   const url = await uploadImage(file);
   document.getElementById("p-img").value = url;
-  showToast("📷 Imagen subida");
+  showToast(t('blog-image-uploaded-toast',currentLang));
 };
 
 window.eliminarPost = async function(id, titulo) {
-  if(!confirm(`¿Eliminar "${titulo}"?`)) return;
+  if(!confirm(tf('common-delete-confirm',currentLang,{name:titulo}))) return;
   await deletePost(id);
-  showToast("🗑 Post eliminado"); renderBlog();
+  showToast(t('blog-deleted-toast',currentLang)); renderBlog();
 };
 
 window.formatText = function(cmd, taId='p-contenido-es') { document.getElementById(taId).focus(); document.execCommand(cmd); };
@@ -852,8 +852,8 @@ async function renderConsultas() {
   const consultas = await getConsultas();
   document.getElementById("section-content").innerHTML = `
     <div class="sec-header">
-      <h2>Consultas</h2>
-      <span style="font-size:13px;color:#888">${consultas.filter(c=>!c.leida).length} sin leer de ${consultas.length} total</span>
+      <h2>${t('consultas-title',currentLang)}</h2>
+      <span style="font-size:13px;color:#888">${tf('consultas-unread-of-total',currentLang,{unread:consultas.filter(c=>!c.leida).length,total:consultas.length})}</span>
     </div>
     <div class="items-list">
       ${consultas.length ? consultas.map(c=>`
@@ -861,8 +861,8 @@ async function renderConsultas() {
           <div class="cc-header">
             <div>
               <strong>${c.nombre}</strong>
-              ${!c.leida?'<span class="badge-nueva">Nueva</span>':''}
-              <span class="cc-tipo">${c.tipo||c.origen||'consulta'}</span>
+              ${!c.leida?`<span class="badge-nueva">${t('consultas-new-badge',currentLang)}</span>`:''}
+              <span class="cc-tipo">${c.tipo||c.origen||t('consultas-default-type',currentLang)}</span>
             </div>
             <span class="cc-fecha">${formatFecha(c.fecha)}</span>
           </div>
@@ -873,10 +873,10 @@ async function renderConsultas() {
           </div>
           <div class="cc-msg">${c.mensaje||''}</div>
           <div class="cc-actions">
-            <a href="mailto:${c.email}?subject=Re: Tu consulta en Viajes La Maleta" class="btn-reply">✉️ Responder por email</a>
-            ${!c.leida?`<button class="btn-secondary" onclick="marcarLeido('${c.id}')">✓ Marcar como leída</button>`:'<span style="font-size:12px;color:#aaa">✓ Leída</span>'}
+            <a href="mailto:${c.email}?subject=Re: Tu consulta en Viajes La Maleta" class="btn-reply">${t('consultas-reply',currentLang)}</a>
+            ${!c.leida?`<button class="btn-secondary" onclick="marcarLeido('${c.id}')">${t('consultas-mark-read',currentLang)}</button>`:`<span style="font-size:12px;color:#aaa">${t('consultas-read',currentLang)}</span>`}
           </div>
-        </div>`).join("") : '<div class="empty-state-admin">No hay consultas todavía.</div>'}
+        </div>`).join("") : `<div class="empty-state-admin">${t('consultas-empty',currentLang)}</div>`}
     </div>`;
 }
 
@@ -884,7 +884,7 @@ window.marcarLeido = async function(id) {
   await marcarLeida(id);
   const el = document.getElementById(`c-${id}`);
   if(el) { el.classList.remove("consulta-nueva-card"); el.querySelector(".badge-nueva")?.remove(); }
-  showToast("✓ Marcada como leída");
+  showToast(t('consultas-marked-toast',currentLang));
 };
 
 // ─── SETTINGS ─────────────────────────────────────────────
@@ -1023,32 +1023,32 @@ async function renderUsuarios() {
   const isSuperAdmin = CU.role === "superadmin";
   const users = await getAllUsers(isSuperAdmin ? undefined : "editor");
   document.getElementById("section-content").innerHTML = `
-    <div class="sec-header"><h2>Usuarios</h2></div>
+    <div class="sec-header"><h2>${t('usuarios-title',currentLang)}</h2></div>
     <table class="ut">
-      <thead><tr><th>Email</th><th>Nombre</th><th>Rol</th><th>Acción</th></tr></thead>
+      <thead><tr><th>${t('usuarios-th-email',currentLang)}</th><th>${t('usuarios-th-name',currentLang)}</th><th>${t('usuarios-th-role',currentLang)}</th><th>${t('usuarios-th-action',currentLang)}</th></tr></thead>
       <tbody>
         ${users.map(u=>`
           <tr>
             <td>${u.email}</td>
             <td><strong>${u.name}</strong></td>
             <td><span class="${u.role==='superadmin'?'badge-s':u.role==='admin'?'badge-a':'badge-e'}">${u.role}</span></td>
-            <td>${isSuperAdmin && u.role!=='superadmin' ? `<button class="del-btn" onclick="delUser('${u.id}')">Eliminar</button>` : '—'}</td>
+            <td>${isSuperAdmin && u.role!=='superadmin' ? `<button class="del-btn" onclick="delUser('${u.id}')">${t('usuarios-delete-btn',currentLang)}</button>` : '—'}</td>
           </tr>`).join("")}
       </tbody>
     </table>
     <div style="margin-top:32px;">
-      <div class="settings-card-title">➕ Crear nuevo usuario</div>
+      <div class="settings-card-title">${t('usuarios-create-title',currentLang)}</div>
       <div class="um-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
-        <div class="form-field"><label>Email</label><input type="email" id="nu-e" placeholder="nuevo@email.com"></div>
-        <div class="form-field"><label>Nombre</label><input type="text" id="nu-n" placeholder="Nombre Apellido"></div>
-        <div class="form-field"><label>Contraseña</label><input type="password" id="nu-p" placeholder="Mín. 8 caracteres"></div>
-        <div class="form-field"><label>Rol</label>
+        <div class="form-field"><label>${t('usuarios-th-email',currentLang)}</label><input type="email" id="nu-e" placeholder="nuevo@email.com"></div>
+        <div class="form-field"><label>${t('usuarios-th-name',currentLang)}</label><input type="text" id="nu-n" placeholder="Nombre Apellido"></div>
+        <div class="form-field"><label>${t('usuarios-field-password',currentLang)}</label><input type="password" id="nu-p" placeholder="${t('usuarios-password-hint',currentLang)}"></div>
+        <div class="form-field"><label>${t('usuarios-th-role',currentLang)}</label>
           ${isSuperAdmin
             ? `<select id="nu-r"><option value="editor">Editor</option><option value="admin">Admin</option></select>`
             : `<select id="nu-r" disabled><option value="editor" selected>Editor</option></select>`}
         </div>
       </div>
-      <button class="btn-primary" onclick="addUser()" style="margin-top:12px;">Crear Usuario</button>
+      <button class="btn-primary" onclick="addUser()" style="margin-top:12px;">${t('usuarios-create-btn',currentLang)}</button>
       <div id="um-err" style="color:#c0392b;font-size:13px;margin-top:8px;"></div>
     </div>`;
 }
@@ -1060,21 +1060,21 @@ window.addUser = async function() {
   const role  = document.getElementById("nu-r").value;
   const errEl = document.getElementById("um-err");
   errEl.textContent = "";
-  if(!email||!name||!pass){ errEl.textContent="Completá todos los campos"; return; }
-  if(pass.length<8){ errEl.textContent="La contraseña debe tener al menos 8 caracteres"; return; }
+  if(!email||!name||!pass){ errEl.textContent=t('usuarios-fill-all',currentLang); return; }
+  if(pass.length<8){ errEl.textContent=t('usuarios-password-min',currentLang); return; }
   try {
     await createUser(email, pass, name, role);
-    showToast(`👤 Usuario "${name}" creado`);
+    showToast(tf('usuarios-created-toast',currentLang,{name}));
     renderUsuarios();
   } catch(e) {
-    errEl.textContent = "Error: " + (e.code==="auth/email-already-in-use"?"Ese email ya está registrado":e.message);
+    errEl.textContent = t('common-error',currentLang) + ": " + (e.code==="auth/email-already-in-use"?t('usuarios-email-in-use',currentLang):e.message);
   }
 };
 
 window.delUser = async function(uid) {
-  if(!confirm("¿Eliminar este usuario?")) return;
+  if(!confirm(t('usuarios-delete-confirm',currentLang))) return;
   await deleteUserProfile(uid);
-  showToast("🗑 Usuario eliminado"); renderUsuarios();
+  showToast(t('usuarios-deleted-toast',currentLang)); renderUsuarios();
 };
 
 // ─── Idioma topbar ────────────────────────────────────────
@@ -1111,11 +1111,16 @@ function applyAdminTranslations(lang) {
   });
 
   // Re-render la sección actual para aplicar traducciones
-  if (currentSection === 'settings') {
-    renderSettings();
-  } else if (currentSection === 'dashboard') {
-    renderDashboard();
-  }
+  const rerenders = {
+    dashboard:    renderDashboard,
+    destinos:     renderDestinos,
+    experiencias: renderExperiencias,
+    blog:         renderBlog,
+    consultas:    renderConsultas,
+    settings:     renderSettings,
+    usuarios:     renderUsuarios,
+  };
+  if (rerenders[currentSection]) rerenders[currentSection]();
 }
 
 // ─── Colores ──────────────────────────────────────────────
