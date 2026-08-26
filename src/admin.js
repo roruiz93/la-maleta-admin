@@ -29,7 +29,7 @@ onAuthChange(async (fu) => {
   if (fu) {
     const p = await getUserProfile(fu.uid);
     if (!p) { console.log("No existe perfil en Firestore"); return logoutUser(); }
-    if (p.role !== "admin" && p.role !== "superadmin") { console.log("No tiene permisos"); return logoutUser(); }
+    if (!["editor","admin","superadmin"].includes(p.role)) { console.log("No tiene permisos"); return logoutUser(); }
     CU = { ...p, uid: fu.uid };
     showCMS();
   } else {
@@ -81,8 +81,9 @@ function setupCMS() {
   badge.textContent = `${CU.name} · ${roleLabel}`;
   badge.className = "tb-badge" + (CU.role==="superadmin"?" super":"");
   const isSA = CU.role === "superadmin";
-  document.getElementById("btn-users").style.display  = isSA ? "inline-flex" : "none";
-  document.getElementById("super-sep").style.display  = isSA ? "block" : "none";
+  const canManageUsers = isSA || CU.role === "admin";
+  document.getElementById("btn-users").style.display  = canManageUsers ? "inline-flex" : "none";
+  document.getElementById("super-sep").style.display  = canManageUsers ? "block" : "none";
   // Enlace de vista previa removido - ahora usamos iframe integrado
   buildLangSwitchers();
   applyAdminTranslations(currentLang);
@@ -1010,7 +1011,8 @@ window.guardarSettings = async function() {
 
 // ─── USUARIOS ─────────────────────────────────────────────
 async function renderUsuarios() {
-  const users = await getAllUsers();
+  const isSuperAdmin = CU.role === "superadmin";
+  const users = await getAllUsers(isSuperAdmin ? undefined : "editor");
   document.getElementById("section-content").innerHTML = `
     <div class="sec-header"><h2>Usuarios</h2></div>
     <table class="ut">
@@ -1021,7 +1023,7 @@ async function renderUsuarios() {
             <td>${u.email}</td>
             <td><strong>${u.name}</strong></td>
             <td><span class="${u.role==='superadmin'?'badge-s':u.role==='admin'?'badge-a':'badge-e'}">${u.role}</span></td>
-            <td>${u.role==='superadmin'?'—':`<button class="del-btn" onclick="delUser('${u.id}')">Eliminar</button>`}</td>
+            <td>${isSuperAdmin && u.role!=='superadmin' ? `<button class="del-btn" onclick="delUser('${u.id}')">Eliminar</button>` : '—'}</td>
           </tr>`).join("")}
       </tbody>
     </table>
@@ -1032,7 +1034,9 @@ async function renderUsuarios() {
         <div class="form-field"><label>Nombre</label><input type="text" id="nu-n" placeholder="Nombre Apellido"></div>
         <div class="form-field"><label>Contraseña</label><input type="password" id="nu-p" placeholder="Mín. 8 caracteres"></div>
         <div class="form-field"><label>Rol</label>
-          <select id="nu-r"><option value="editor">Editor</option><option value="admin">Admin</option></select>
+          ${isSuperAdmin
+            ? `<select id="nu-r"><option value="editor">Editor</option><option value="admin">Admin</option></select>`
+            : `<select id="nu-r" disabled><option value="editor" selected>Editor</option></select>`}
         </div>
       </div>
       <button class="btn-primary" onclick="addUser()" style="margin-top:12px;">Crear Usuario</button>

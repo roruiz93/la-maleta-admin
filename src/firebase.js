@@ -14,7 +14,9 @@ import {
   collection,
   getDocs,
   deleteDoc,
-  onSnapshot
+  onSnapshot,
+  query,
+  where
 } from "firebase/firestore";
 import { firebaseConfig } from "./firebase-config";
 
@@ -70,8 +72,9 @@ export async function getUserProfile(uid) {
   const snap = await getDoc(doc(db, "users", uid));
   return snap.exists() ? snap.data() : null;
 }
-export async function getAllUsers() {
-  const snap = await getDocs(collection(db, "users"));
+export async function getAllUsers(role) {
+  const usersRef = collection(db, "users");
+  const snap = await getDocs(role ? query(usersRef, where("role", "==", role)) : usersRef);
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 export async function createUser(email, password, name, role) {
