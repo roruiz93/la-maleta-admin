@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, deleteApp } from "firebase/app";
 import {
   getAuth,
   signInWithEmailAndPassword,
@@ -75,16 +75,26 @@ export async function getAllUsers() {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 export async function createUser(email, password, name, role) {
-  const cred = await createUserWithEmailAndPassword(auth, email, password);
+  // Se crea en una app secundaria y aislada para no pisar la sesión
+  // del admin actual: createUserWithEmailAndPassword() inicia sesión
+  // automáticamente como el usuario nuevo en la instancia de auth que use.
+  const secondaryApp = initializeApp(firebaseConfig, `Secondary-${Date.now()}`);
+  const secondaryAuth = getAuth(secondaryApp);
+  try {
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
 
-  await setDoc(doc(db, "users", cred.user.uid), {
-    email,
-    name,
-    role,
-    createdAt: new Date().toISOString()
-  });
+    await setDoc(doc(db, "users", cred.user.uid), {
+      email,
+      name,
+      role,
+      createdAt: new Date().toISOString()
+    });
 
-  return cred.user;
+    return cred.user;
+  } finally {
+    await signOut(secondaryAuth);
+    await deleteApp(secondaryApp);
+  }
 }
 export async function deleteUserProfile(uid) {
   await deleteDoc(doc(db, "users", uid));

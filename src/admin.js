@@ -164,15 +164,15 @@ async function renderDestinos() {
     <div class="items-list">
       ${items.length ? items.map(d=>`
         <div class="item-row">
-          <img src="${d.imagen||'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=100&q=60'}" class="item-thumb" alt="${d.nombre}">
+          <img src="${d.imagen||'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=100&q=60'}" class="item-thumb" alt="${mlVal(d.nombre,'es')}">
           <div class="item-info">
-            <strong>${d.nombre}</strong>
+            <strong>${mlVal(d.nombre,'es')}</strong>
             <span>${d.categoria||''} · ${d.duracion||''} · desde $${(d.precio||0).toLocaleString()}</span>
           </div>
           <div class="item-actions">
             <span class="badge-status ${d.activo!==false?'activo':'inactivo'}">${d.activo!==false?'Activo':'Oculto'}</span>
             <button class="btn-edit" onclick="editarDestino('${d.id}')">✏️ Editar</button>
-            <button class="btn-del"  onclick="eliminarDestino('${d.id}','${d.nombre}')">🗑</button>
+            <button class="btn-del"  onclick="eliminarDestino('${d.id}','${mlVal(d.nombre,'es')}')">🗑</button>
           </div>
         </div>`).join("") : '<div class="empty-state-admin">No hay destinos. ¡Creá el primero!</div>'}
     </div>
@@ -180,6 +180,16 @@ async function renderDestinos() {
 }
 
 window.abrirModalDestino = function(d={}) {
+  const nombreEs = mlVal(d.nombre, 'es');
+  const nombreEn = mlVal(d.nombre, 'en');
+  const nombreCa = mlVal(d.nombre, 'ca');
+  const cortaEs  = mlVal(d.descripcionCorta, 'es');
+  const cortaEn  = mlVal(d.descripcionCorta, 'en');
+  const cortaCa  = mlVal(d.descripcionCorta, 'ca');
+  const descEs   = mlVal(d.descripcion, 'es');
+  const descEn   = mlVal(d.descripcion, 'en');
+  const descCa   = mlVal(d.descripcion, 'ca');
+
   document.getElementById("modal-destino").style.display = "flex";
   document.getElementById("modal-destino").innerHTML = `
     <div class="modal-box">
@@ -189,15 +199,34 @@ window.abrirModalDestino = function(d={}) {
       </div>
       <div class="modal-body">
         <div class="form-row-admin">
-          <div class="form-field"><label>Nombre *</label><input id="d-nombre" value="${d.nombre||''}" placeholder="Ej: Noruega"></div>
           <div class="form-field"><label>Categoría</label><input id="d-cat" value="${d.categoria||''}" placeholder="Ej: Europa"></div>
-        </div>
-        <div class="form-row-admin">
           <div class="form-field"><label>Precio (USD)</label><input id="d-precio" type="number" value="${d.precio||''}" placeholder="1200"></div>
           <div class="form-field"><label>Duración</label><input id="d-dur" value="${d.duracion||''}" placeholder="Ej: 7 días"></div>
         </div>
-        <div class="form-field"><label>Descripción corta</label><input id="d-descCorta" value="${d.descripcionCorta||''}" placeholder="Breve descripción para la tarjeta"></div>
-        <div class="form-field"><label>Descripción completa</label><textarea id="d-desc" rows="4" placeholder="Descripción detallada...">${d.descripcion||''}</textarea></div>
+
+        <div style="display:flex;gap:6px;margin:14px 0 10px;align-items:center;flex-wrap:wrap;">
+          <button id="dest-tab-es" class="btn-tab active" onclick="destLang('es')">🇪🇸 Español</button>
+          <button id="dest-tab-en" class="btn-tab"        onclick="destLang('en')">🇬🇧 English</button>
+          <button id="dest-tab-ca" class="btn-tab"        onclick="destLang('ca')">🏴 Català</button>
+          <button class="btn-upload" onclick="autoTraducirDest()" style="margin-left:auto">🌐 Auto-traducir</button>
+        </div>
+
+        <div id="dest-fields-es">
+          <div class="form-field"><label>Nombre * (ES)</label><input id="d-nombre-es" value="${nombreEs}" placeholder="Ej: Noruega"></div>
+          <div class="form-field"><label>Descripción corta (ES)</label><input id="d-descCorta-es" value="${cortaEs}" placeholder="Breve descripción para la tarjeta"></div>
+          <div class="form-field"><label>Descripción completa (ES)</label><textarea id="d-desc-es" rows="4">${descEs}</textarea></div>
+        </div>
+        <div id="dest-fields-en" style="display:none">
+          <div class="form-field"><label>Name (EN)</label><input id="d-nombre-en" value="${nombreEn}" placeholder="E.g.: Norway"></div>
+          <div class="form-field"><label>Short description (EN)</label><input id="d-descCorta-en" value="${cortaEn}" placeholder="Brief description for the card"></div>
+          <div class="form-field"><label>Full description (EN)</label><textarea id="d-desc-en" rows="4">${descEn}</textarea></div>
+        </div>
+        <div id="dest-fields-ca" style="display:none">
+          <div class="form-field"><label>Nom (CA)</label><input id="d-nombre-ca" value="${nombreCa}" placeholder="Ex: Noruega"></div>
+          <div class="form-field"><label>Descripció curta (CA)</label><input id="d-descCorta-ca" value="${cortaCa}" placeholder="Breu descripció per a la targeta"></div>
+          <div class="form-field"><label>Descripció completa (CA)</label><textarea id="d-desc-ca" rows="4">${descCa}</textarea></div>
+        </div>
+
         <div class="form-field">
           <label>Imágenes del destino</label>
           <div style="display:flex;gap:10px;align-items:center;">
@@ -291,15 +320,27 @@ window.subirImgDestino = async (e) => {
 };
 
 window.guardarDestino = async function(id) {
-  const nombre = document.getElementById("d-nombre").value.trim();
-  if (!nombre) { document.getElementById("modal-msg").textContent = "El nombre es requerido"; return; }
+  const nombreEs = document.getElementById("d-nombre-es").value.trim();
+  if (!nombreEs) { document.getElementById("modal-msg").textContent = "El nombre en español es requerido"; return; }
   const data = {
-    nombre,
+    nombre: {
+      es: nombreEs,
+      en: document.getElementById("d-nombre-en").value.trim(),
+      ca: document.getElementById("d-nombre-ca").value.trim(),
+    },
+    descripcionCorta: {
+      es: document.getElementById("d-descCorta-es").value.trim(),
+      en: document.getElementById("d-descCorta-en").value.trim(),
+      ca: document.getElementById("d-descCorta-ca").value.trim(),
+    },
+    descripcion: {
+      es: document.getElementById("d-desc-es").value.trim(),
+      en: document.getElementById("d-desc-en").value.trim(),
+      ca: document.getElementById("d-desc-ca").value.trim(),
+    },
     categoria:        document.getElementById("d-cat").value.trim(),
     precio:           parseFloat(document.getElementById("d-precio").value) || 0,
     duracion:         document.getElementById("d-dur").value.trim(),
-    descripcionCorta: document.getElementById("d-descCorta").value.trim(),
-    descripcion:      document.getElementById("d-desc").value.trim(),
     incluye:          document.getElementById("d-incluye").value.split("\n").map(s=>s.trim()).filter(Boolean),
     orden:            parseInt(document.getElementById("d-orden").value) || 0,
     activo:           document.getElementById("d-activo").value === "true",
@@ -366,6 +407,97 @@ window.expLang = function(lang) {
     document.getElementById(`exp-tab-${l}`).classList.toggle('active', l === lang);
     document.getElementById(`exp-fields-${l}`).style.display = l === lang ? '' : 'none';
   });
+};
+
+window.destLang = function(lang) {
+  ['es','en','ca'].forEach(l => {
+    document.getElementById(`dest-tab-${l}`).classList.toggle('active', l === lang);
+    document.getElementById(`dest-fields-${l}`).style.display = l === lang ? '' : 'none';
+  });
+};
+
+window.postLang = function(lang) {
+  ['es','en','ca'].forEach(l => {
+    document.getElementById(`post-tab-${l}`).classList.toggle('active', l === lang);
+    document.getElementById(`post-fields-${l}`).style.display = l === lang ? '' : 'none';
+  });
+};
+
+window.autoTraducirPost = async function() {
+  const tituloEs  = document.getElementById("p-titulo-es").value.trim();
+  const resumenEs = document.getElementById("p-resumen-es").value.trim();
+
+  if (!tituloEs) {
+    document.getElementById("modal-post-msg").textContent = "Completá primero el título en español.";
+    return;
+  }
+
+  const btn = document.querySelector('[onclick="autoTraducirPost()"]');
+  btn.textContent = "⏳ Traduciendo...";
+  btn.disabled = true;
+  document.getElementById("modal-post-msg").textContent = "";
+
+  try {
+    const [tituloEn, tituloCa, resumenEn, resumenCa] = await Promise.all([
+      traducir(tituloEs,  'en'),
+      traducir(tituloEs,  'ca'),
+      traducir(resumenEs, 'en'),
+      traducir(resumenEs, 'ca'),
+    ]);
+
+    document.getElementById("p-titulo-en").value  = tituloEn;
+    document.getElementById("p-titulo-ca").value  = tituloCa;
+    document.getElementById("p-resumen-en").value = resumenEn;
+    document.getElementById("p-resumen-ca").value = resumenCa;
+
+    showToast("✅ Título y resumen traducidos. El contenido traducilo manualmente.");
+  } catch(err) {
+    document.getElementById("modal-post-msg").textContent = "Error al traducir. Verificá tu conexión.";
+  } finally {
+    btn.textContent = "🌐 Auto-traducir";
+    btn.disabled = false;
+  }
+};
+
+window.autoTraducirDest = async function() {
+  const nombreEs = document.getElementById("d-nombre-es").value.trim();
+  const cortaEs  = document.getElementById("d-descCorta-es").value.trim();
+  const descEs   = document.getElementById("d-desc-es").value.trim();
+
+  if (!nombreEs) {
+    document.getElementById("modal-msg").textContent = "Completá primero el nombre en español.";
+    return;
+  }
+
+  const btn = document.querySelector('[onclick="autoTraducirDest()"]');
+  btn.textContent = "⏳ Traduciendo...";
+  btn.disabled = true;
+  document.getElementById("modal-msg").textContent = "";
+
+  try {
+    const [nombreEn, nombreCa, cortaEn, cortaCa, descEn, descCa] = await Promise.all([
+      traducir(nombreEs, 'en'),
+      traducir(nombreEs, 'ca'),
+      traducir(cortaEs,  'en'),
+      traducir(cortaEs,  'ca'),
+      traducir(descEs,   'en'),
+      traducir(descEs,   'ca'),
+    ]);
+
+    document.getElementById("d-nombre-en").value   = nombreEn;
+    document.getElementById("d-nombre-ca").value   = nombreCa;
+    document.getElementById("d-descCorta-en").value = cortaEn;
+    document.getElementById("d-descCorta-ca").value = cortaCa;
+    document.getElementById("d-desc-en").value     = descEn;
+    document.getElementById("d-desc-ca").value     = descCa;
+
+    showToast("✅ Traducción completada");
+  } catch(err) {
+    document.getElementById("modal-msg").textContent = "Error al traducir. Verificá tu conexión.";
+  } finally {
+    btn.textContent = "🌐 Auto-traducir";
+    btn.disabled = false;
+  }
 };
 
 async function traducir(texto, destLang) {
@@ -532,15 +664,15 @@ async function renderBlog() {
     <div class="items-list">
       ${posts.length ? posts.map(p=>`
         <div class="item-row">
-          <img src="${p.imagen||'https://images.unsplash.com/photo-1488085061387-422e29b40080?w=100&q=60'}" class="item-thumb" alt="${p.titulo}">
+          <img src="${p.imagen||'https://images.unsplash.com/photo-1488085061387-422e29b40080?w=100&q=60'}" class="item-thumb" alt="${mlVal(p.titulo,'es')}">
           <div class="item-info">
-            <strong>${p.titulo}</strong>
+            <strong>${mlVal(p.titulo,'es')}</strong>
             <span>${p.categoria||''} · ${formatFecha(p.fecha)} · por ${p.autor||'—'}</span>
           </div>
           <div class="item-actions">
             <span class="badge-status ${p.publicado?'activo':'inactivo'}">${p.publicado?'Publicado':'Borrador'}</span>
             <button class="btn-edit" onclick="editarPost('${p.id}')">✏️ Editar</button>
-            <button class="btn-del"  onclick="eliminarPost('${p.id}','${p.titulo}')">🗑</button>
+            <button class="btn-del"  onclick="eliminarPost('${p.id}','${mlVal(p.titulo,'es')}')">🗑</button>
           </div>
         </div>`).join("") : '<div class="empty-state-admin">No hay posts. ¡Escribí el primero!</div>'}
     </div>
@@ -548,17 +680,25 @@ async function renderBlog() {
 }
 
 window.abrirModalPost = function(p={}) {
+  const tituloEs   = mlVal(p.titulo,   'es');
+  const tituloEn   = mlVal(p.titulo,   'en');
+  const tituloCa   = mlVal(p.titulo,   'ca');
+  const resumenEs  = mlVal(p.resumen,  'es');
+  const resumenEn  = mlVal(p.resumen,  'en');
+  const resumenCa  = mlVal(p.resumen,  'ca');
+  const contenidoEs = mlVal(p.contenido, 'es');
+  const contenidoEn = mlVal(p.contenido, 'en');
+  const contenidoCa = mlVal(p.contenido, 'ca');
+
   document.getElementById("modal-post").style.display = "flex";
   document.getElementById("modal-post").innerHTML = `
     <div class="modal-box modal-wide">
       <div class="modal-header"><h3>${p.id?'Editar':'Nuevo'} Post</h3><button onclick="cerrarModal('modal-post')">×</button></div>
       <div class="modal-body">
-        <div class="form-field"><label>Título *</label><input id="p-titulo" value="${p.titulo||''}" placeholder="Título del artículo"></div>
         <div class="form-row-admin">
           <div class="form-field"><label>Categoría</label><input id="p-cat" value="${p.categoria||''}" placeholder="Ej: Guías de viaje"></div>
           <div class="form-field"><label>Autor</label><input id="p-autor" value="${p.autor||CU.name}" placeholder="Nombre del autor"></div>
         </div>
-        <div class="form-field"><label>Resumen / Extracto</label><textarea id="p-resumen" rows="2" placeholder="Breve descripción...">${p.resumen||''}</textarea></div>
         <div class="form-field">
           <label>Imagen de portada</label>
           <div style="display:flex;gap:10px;align-items:center;">
@@ -567,17 +707,58 @@ window.abrirModalPost = function(p={}) {
             <button class="btn-upload" onclick="document.getElementById('p-img-file').click()">📷 Subir</button>
           </div>
         </div>
-        <div class="form-field">
-          <label>Contenido (HTML o texto)</label>
-          <div class="editor-toolbar">
-            <button type="button" onclick="formatText('bold')"><b>B</b></button>
-            <button type="button" onclick="formatText('italic')"><i>I</i></button>
-            <button type="button" onclick="insertTag('h2')">H2</button>
-            <button type="button" onclick="insertTag('p')">¶</button>
-          </div>
-          <textarea id="p-contenido" rows="12" placeholder="<h2>Introducción</h2>...">${p.contenido||''}</textarea>
+
+        <div style="display:flex;gap:6px;margin:14px 0 10px;align-items:center;flex-wrap:wrap;">
+          <button id="post-tab-es" class="btn-tab active" onclick="postLang('es')">🇪🇸 Español</button>
+          <button id="post-tab-en" class="btn-tab"        onclick="postLang('en')">🇬🇧 English</button>
+          <button id="post-tab-ca" class="btn-tab"        onclick="postLang('ca')">🏴 Català</button>
+          <button class="btn-upload" onclick="autoTraducirPost()" style="margin-left:auto">🌐 Auto-traducir</button>
         </div>
-        <div class="form-row-admin">
+
+        <div id="post-fields-es">
+          <div class="form-field"><label>Título * (ES)</label><input id="p-titulo-es" value="${tituloEs}" placeholder="Título del artículo"></div>
+          <div class="form-field"><label>Resumen (ES)</label><textarea id="p-resumen-es" rows="2">${resumenEs}</textarea></div>
+          <div class="form-field">
+            <label>Contenido (ES)</label>
+            <div class="editor-toolbar">
+              <button type="button" onclick="formatText('bold','p-contenido-es')"><b>B</b></button>
+              <button type="button" onclick="formatText('italic','p-contenido-es')"><i>I</i></button>
+              <button type="button" onclick="insertTag('h2','p-contenido-es')">H2</button>
+              <button type="button" onclick="insertTag('p','p-contenido-es')">¶</button>
+            </div>
+            <textarea id="p-contenido-es" rows="10">${contenidoEs}</textarea>
+          </div>
+        </div>
+        <div id="post-fields-en" style="display:none">
+          <div class="form-field"><label>Title (EN)</label><input id="p-titulo-en" value="${tituloEn}" placeholder="Article title"></div>
+          <div class="form-field"><label>Summary (EN)</label><textarea id="p-resumen-en" rows="2">${resumenEn}</textarea></div>
+          <div class="form-field">
+            <label>Content (EN)</label>
+            <div class="editor-toolbar">
+              <button type="button" onclick="formatText('bold','p-contenido-en')"><b>B</b></button>
+              <button type="button" onclick="formatText('italic','p-contenido-en')"><i>I</i></button>
+              <button type="button" onclick="insertTag('h2','p-contenido-en')">H2</button>
+              <button type="button" onclick="insertTag('p','p-contenido-en')">¶</button>
+            </div>
+            <textarea id="p-contenido-en" rows="10">${contenidoEn}</textarea>
+          </div>
+        </div>
+        <div id="post-fields-ca" style="display:none">
+          <div class="form-field"><label>Títol (CA)</label><input id="p-titulo-ca" value="${tituloCa}" placeholder="Títol de l'article"></div>
+          <div class="form-field"><label>Resum (CA)</label><textarea id="p-resumen-ca" rows="2">${resumenCa}</textarea></div>
+          <div class="form-field">
+            <label>Contingut (CA)</label>
+            <div class="editor-toolbar">
+              <button type="button" onclick="formatText('bold','p-contenido-ca')"><b>B</b></button>
+              <button type="button" onclick="formatText('italic','p-contenido-ca')"><i>I</i></button>
+              <button type="button" onclick="insertTag('h2','p-contenido-ca')">H2</button>
+              <button type="button" onclick="insertTag('p','p-contenido-ca')">¶</button>
+            </div>
+            <textarea id="p-contenido-ca" rows="10">${contenidoCa}</textarea>
+          </div>
+        </div>
+
+        <div class="form-row-admin" style="margin-top:12px">
           <div class="form-field"><label>Fecha</label><input id="p-fecha" type="date" value="${p.fecha?p.fecha.slice(0,10):new Date().toISOString().slice(0,10)}"></div>
           <div class="form-field"><label>Estado</label>
             <select id="p-pub">
@@ -600,15 +781,27 @@ window.editarPost = async function(id) {
 };
 
 window.guardarPost = async function(id) {
-  const titulo = document.getElementById("p-titulo").value.trim();
-  if(!titulo){ document.getElementById("modal-post-msg").textContent="Título requerido"; return; }
+  const tituloEs = document.getElementById("p-titulo-es").value.trim();
+  if(!tituloEs){ document.getElementById("modal-post-msg").textContent="Título en español requerido"; return; }
   const data = {
-    titulo,
+    titulo: {
+      es: tituloEs,
+      en: document.getElementById("p-titulo-en").value.trim(),
+      ca: document.getElementById("p-titulo-ca").value.trim(),
+    },
+    resumen: {
+      es: document.getElementById("p-resumen-es").value.trim(),
+      en: document.getElementById("p-resumen-en").value.trim(),
+      ca: document.getElementById("p-resumen-ca").value.trim(),
+    },
+    contenido: {
+      es: document.getElementById("p-contenido-es").value.trim(),
+      en: document.getElementById("p-contenido-en").value.trim(),
+      ca: document.getElementById("p-contenido-ca").value.trim(),
+    },
     categoria:  document.getElementById("p-cat").value.trim(),
     autor:      document.getElementById("p-autor").value.trim(),
-    resumen:    document.getElementById("p-resumen").value.trim(),
     imagen:     document.getElementById("p-img").value.trim(),
-    contenido:  document.getElementById("p-contenido").value.trim(),
     fecha:      document.getElementById("p-fecha").value,
     publicado:  document.getElementById("p-pub").value === "true",
   };
@@ -634,9 +827,9 @@ window.eliminarPost = async function(id, titulo) {
   showToast("🗑 Post eliminado"); renderBlog();
 };
 
-window.formatText = function(cmd) { document.getElementById("p-contenido").focus(); document.execCommand(cmd); };
-window.insertTag = function(tag) {
-  const ta = document.getElementById("p-contenido");
+window.formatText = function(cmd, taId='p-contenido-es') { document.getElementById(taId).focus(); document.execCommand(cmd); };
+window.insertTag = function(tag, taId='p-contenido-es') {
+  const ta = document.getElementById(taId);
   const sel = ta.value.substring(ta.selectionStart, ta.selectionEnd);
   const ins = sel ? `<${tag}>${sel}</${tag}>` : `<${tag}></${tag}>`;
   const start = ta.selectionStart;
@@ -1050,40 +1243,11 @@ const LANG_META_CMS = {
   en: { flag: "🇬🇧", label: "English",  code: "en" },
 };
 
-// ── Traducción: Claude API → LibreTranslate fallback ──────
+// ── Traducción: LibreTranslate ─────────────────────────────
 async function translateBatch(keyValueObj, sourceLang, targetLang) {
   const entries = Object.entries(keyValueObj).filter(([, v]) => v && v.trim());
   if (!entries.length) return {};
 
-  const langNames = { es: "Spanish", ca: "Catalan", en: "English" };
-
-  // Intento 1: Claude API
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        messages: [{
-          role: "user",
-          content: `You are a professional travel agency translator.
-Translate the following JSON from ${langNames[sourceLang]} to ${langNames[targetLang]}.
-Keep the EXACT same keys. Only translate values. Preserve emojis and formatting.
-Return ONLY valid JSON, no explanation, no markdown.
-
-${JSON.stringify(Object.fromEntries(entries))}`
-        }]
-      })
-    });
-    const data = await res.json();
-    const raw = data?.content?.[0]?.text || "";
-    return JSON.parse(raw.replace(/```json|```/gi, "").trim());
-  } catch (err) {
-    console.warn("Claude translate failed, trying LibreTranslate:", err);
-  }
-
-  // Intento 2: LibreTranslate (gratuito)
   try {
     const results = {};
     for (const [key, text] of entries) {

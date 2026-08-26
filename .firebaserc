@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "default": "la-maleta-e038c"
+  },
+  "targets": {
+    "la-maleta-e038c": {
+      "hosting": {
+        "admin": ["la-maleta-admin"]
+      }
+    }
+  }
+}
