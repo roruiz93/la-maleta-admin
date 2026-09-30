@@ -7,8 +7,11 @@
 import { getAI, getGenerativeModel, GoogleAIBackend } from "firebase/ai";
 import { app } from "./firebase.js";
 
-// Del mejor al más liviano: si un modelo no está disponible se prueba el siguiente
-const MODELOS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
+// Alias que siempre apuntan a la versión vigente de Gemini (los modelos con número
+// se retiran para proyectos nuevos). La capa gratuita tiene un cupo diario POR
+// MODELO: si uno se agota o no está disponible, se pasa al siguiente.
+// Flash Lite va primero: traduce bien y su cupo diario es mayor que el de Flash.
+const MODELOS = ["gemini-flash-lite-latest", "gemini-flash-latest"];
 const MAX_CARACTERES_POR_CONSULTA = 12000;
 const NOMBRES = { es: "español", ca: "catalán", en: "inglés británico" };
 
@@ -66,21 +69,39 @@ function agrupar(items) {
 
 async function consultarGemini(grupo) {
   const pedido = grupo.map(it => ({ id: it.id, origen: NOMBRES[it.origen], destino: NOMBRES[it.destino], texto: it.texto }));
-  for (;;) {
+  let reintentado = false;
+  while (_modeloIdx < MODELOS.length) {
     try {
       const res = await modelo().generateContent(JSON.stringify({ textos: pedido }));
       const datos = JSON.parse(res.response.text());
       return new Map((datos.traducciones || []).map(t => [t.id, t.texto]));
     } catch (e) {
       const msg = String(e?.message || e);
-      // Modelo inexistente o retirado: probar el siguiente
-      if (/404|not found|is not supported/i.test(msg) && _modeloIdx < MODELOS.length - 1) { _modeloIdx++; continue; }
       // API no activada / sin permiso: no insistir en esta sesión
-      if (/403|PERMISSION_DENIED|SERVICE_DISABLED|has not been used|API_NOT_ENABLED|api-not-enabled/i.test(msg)) _geminiApagado = true;
-      console.warn("Gemini no disponible, se usa MyMemory:", msg);
+      if (/PERMISSION_DENIED|SERVICE_DISABLED|has not been used|API_NOT_ENABLED|api-not-enabled/i.test(msg)) {
+        _geminiApagado = true;
+        break;
+      }
+      // Modelo retirado o con el cupo diario agotado: pasar al siguiente modelo
+      if (/404|not found|is not supported|no longer available|429|RESOURCE_EXHAUSTED|quota/i.test(msg)) {
+        console.warn(`Gemini (${MODELOS[_modeloIdx]}) no disponible:`, msg);
+        _modeloIdx++;
+        reintentado = false;
+        continue;
+      }
+      // Error pasajero de Google (INTERNAL / 500 / 503): un reintento
+      if (!reintentado && /500|503|INTERNAL|UNAVAILABLE|overloaded/i.test(msg)) {
+        reintentado = true;
+        await new Promise(r => setTimeout(r, 1500));
+        continue;
+      }
+      console.warn("Gemini falló, se usa MyMemory:", msg);
       return null;
     }
   }
+  if (_modeloIdx >= MODELOS.length) _geminiApagado = true;   // todos agotados por hoy
+  console.warn("Gemini sin cupo o sin activar, se usa MyMemory");
+  return null;
 }
 
 // ─── MyMemory (respaldo) ─────────────────────────────────
