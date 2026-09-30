@@ -44,6 +44,7 @@ onAuthChange(async (fu) => {
     CU = { ...p, uid: fu.uid };
     showCMS();
   } else {
+    CU = null;
     showLogin();
   }
 });
@@ -1280,7 +1281,8 @@ function applyAdminTranslations(lang) {
     settings:     renderSettings,
     usuarios:     renderUsuarios,
   };
-  if (rerenders[currentSection]) rerenders[currentSection]();
+  // Sin sesión (pantalla de login) no hay sección que redibujar: evitaría leer datos protegidos
+  if (CU && rerenders[currentSection]) rerenders[currentSection]();
 }
 
 // ─── Colores ──────────────────────────────────────────────
