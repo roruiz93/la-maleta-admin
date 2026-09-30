@@ -201,7 +201,7 @@ async function renderDestinos() {
           <img src="${d.imagen||'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=100&q=60'}" class="item-thumb" alt="${mlVal(d.nombre,currentLang)}">
           <div class="item-info">
             <strong>${mlVal(d.nombre,currentLang)}</strong>
-            <span>${d.categoria||''} · ${d.duracion||''} · ${Number(d.precio) > 0 ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(d.precio) : '—'}</span>
+            <span>${esc(mlVal(d.categoria,currentLang))} · ${esc(mlVal(d.duracion,currentLang))} · ${Number(d.precio) > 0 ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(d.precio) : '—'}</span>
           </div>
           <div class="item-actions">
             <span class="badge-status ${d.activo!==false?'activo':'inactivo'}">${d.activo!==false?t('common-active',currentLang):t('common-hidden',currentLang)}</span>
@@ -223,6 +223,9 @@ window.abrirModalDestino = function(d={}) {
   const descEs   = mlVal(d.descripcion, 'es');
   const descEn   = mlEdit(d.descripcion, 'en');
   const descCa   = mlEdit(d.descripcion, 'ca');
+  const cat = { es: mlVal(d.categoria, 'es'), en: mlEdit(d.categoria, 'en'), ca: mlEdit(d.categoria, 'ca') };
+  const dur = { es: mlVal(d.duracion, 'es'),  en: mlEdit(d.duracion, 'en'),  ca: mlEdit(d.duracion, 'ca') };
+  const inc = Object.fromEntries(['es','en','ca'].map(l => [l, mlListEdit(d.incluye, l).join('\n')]));
 
   document.getElementById("modal-destino").style.display = "flex";
   document.getElementById("modal-destino").innerHTML = `
@@ -233,9 +236,7 @@ window.abrirModalDestino = function(d={}) {
       </div>
       <div class="modal-body">
         <div class="form-row-admin">
-          <div class="form-field"><label>${t('common-category',currentLang)}</label><input id="d-cat" value="${d.categoria||''}" placeholder="Ej: Europa"></div>
           <div class="form-field"><label>${t('destinos-price',currentLang)}</label><input id="d-precio" type="number" value="${d.precio||''}" placeholder="1200"></div>
-          <div class="form-field"><label>${t('destinos-duration',currentLang)}</label><input id="d-dur" value="${d.duracion||''}" placeholder="Ej: 7 días"></div>
         </div>
 
         <div style="display:flex;gap:6px;margin:14px 0 10px;align-items:center;flex-wrap:wrap;">
@@ -250,16 +251,25 @@ window.abrirModalDestino = function(d={}) {
           <div class="form-field"><label>Nombre * (ES)</label><input id="d-nombre-es" value="${nombreEs}" placeholder="Ej: Noruega"></div>
           <div class="form-field"><label>Descripción corta (ES)</label><input id="d-descCorta-es" value="${cortaEs}" placeholder="Breve descripción para la tarjeta"></div>
           <div class="form-field"><label>Descripción completa (ES)</label><textarea id="d-desc-es" rows="4">${descEs}</textarea></div>
+          <div class="form-field"><label>${t('common-category',currentLang)} (ES)</label><input id="d-cat-es" value="${esc(cat.es)}"></div>
+          <div class="form-field"><label>${t('destinos-duration',currentLang)} (ES)</label><input id="d-dur-es" value="${esc(dur.es)}"></div>
+          <div class="form-field"><label>${t('destinos-includes-label',currentLang)} (ES)</label><textarea id="d-incluye-es" rows="4">${esc(inc.es)}</textarea></div>
         </div>
         <div id="dest-fields-en" style="display:none">
           <div class="form-field"><label>Name (EN)</label><input id="d-nombre-en" value="${nombreEn}" placeholder="E.g.: Norway"></div>
           <div class="form-field"><label>Short description (EN)</label><input id="d-descCorta-en" value="${cortaEn}" placeholder="Brief description for the card"></div>
           <div class="form-field"><label>Full description (EN)</label><textarea id="d-desc-en" rows="4">${descEn}</textarea></div>
+          <div class="form-field"><label>${t('common-category',currentLang)} (EN)</label><input id="d-cat-en" value="${esc(cat.en)}"></div>
+          <div class="form-field"><label>${t('destinos-duration',currentLang)} (EN)</label><input id="d-dur-en" value="${esc(dur.en)}"></div>
+          <div class="form-field"><label>${t('destinos-includes-label',currentLang)} (EN)</label><textarea id="d-incluye-en" rows="4">${esc(inc.en)}</textarea></div>
         </div>
         <div id="dest-fields-ca" style="display:none">
           <div class="form-field"><label>Nom (CA)</label><input id="d-nombre-ca" value="${nombreCa}" placeholder="Ex: Noruega"></div>
           <div class="form-field"><label>Descripció curta (CA)</label><input id="d-descCorta-ca" value="${cortaCa}" placeholder="Breu descripció per a la targeta"></div>
           <div class="form-field"><label>Descripció completa (CA)</label><textarea id="d-desc-ca" rows="4">${descCa}</textarea></div>
+          <div class="form-field"><label>${t('common-category',currentLang)} (CA)</label><input id="d-cat-ca" value="${esc(cat.ca)}"></div>
+          <div class="form-field"><label>${t('destinos-duration',currentLang)} (CA)</label><input id="d-dur-ca" value="${esc(dur.ca)}"></div>
+          <div class="form-field"><label>${t('destinos-includes-label',currentLang)} (CA)</label><textarea id="d-incluye-ca" rows="4">${esc(inc.ca)}</textarea></div>
         </div>
 
         <div class="form-field">
@@ -277,10 +287,6 @@ window.abrirModalDestino = function(d={}) {
               </div>`).join("")
             : (d.imagen ? `<div style="position:relative;width:80px;height:80px;border-radius:6px;overflow:hidden;"><img src="${d.imagen}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;"></div>` : "")}
           </div>
-        </div>
-        <div class="form-field">
-          <label>${t('destinos-includes-label',currentLang)}</label>
-          <textarea id="d-incluye" rows="4" placeholder="Vuelos internacionales&#10;Hotel 4 estrellas&#10;Traslados">${(d.incluye||[]).join('\n')}</textarea>
         </div>
         <div class="form-row-admin">
           <div class="form-field"><label>${t('common-order',currentLang)}</label><input id="d-orden" type="number" value="${d.orden||0}"></div>
@@ -373,10 +379,18 @@ window.guardarDestino = async function(id) {
       en: document.getElementById("d-desc-en").value.trim(),
       ca: document.getElementById("d-desc-ca").value.trim(),
     },
-    categoria:        document.getElementById("d-cat").value.trim(),
+    categoria: {
+      es: document.getElementById("d-cat-es").value.trim(),
+      en: document.getElementById("d-cat-en").value.trim(),
+      ca: document.getElementById("d-cat-ca").value.trim(),
+    },
     precio:           parseFloat(document.getElementById("d-precio").value) || 0,
-    duracion:         document.getElementById("d-dur").value.trim(),
-    incluye:          document.getElementById("d-incluye").value.split("\n").map(s=>s.trim()).filter(Boolean),
+    duracion: {
+      es: document.getElementById("d-dur-es").value.trim(),
+      en: document.getElementById("d-dur-en").value.trim(),
+      ca: document.getElementById("d-dur-ca").value.trim(),
+    },
+    incluye: { es: lineas("d-incluye-es"), en: lineas("d-incluye-en"), ca: lineas("d-incluye-ca") },
     orden:            parseInt(document.getElementById("d-orden").value) || 0,
     activo:           document.getElementById("d-activo").value === "true",
     imagenes:         getImagenesOrdenadas(),
@@ -437,6 +451,14 @@ function mlVal(field, lang) {
   return typeof field === 'object' ? (field[lang] || field.es || '') : field;
 }
 
+// "incluye": lista en un solo idioma (formato viejo = español) o
+// { es:[...], en:[...], ca:[...] }. Sin fallback, como mlEdit.
+function mlListEdit(field, lang) {
+  if (Array.isArray(field)) return lang === 'es' ? field : [];
+  return field && Array.isArray(field[lang]) ? field[lang] : [];
+}
+const lineas = id => document.getElementById(id).value.split("\n").map(s => s.trim()).filter(Boolean);
+
 // Igual que mlVal pero sin fallback a español — para precargar los campos
 // de edición, así una traducción faltante se ve vacía en vez de mostrar
 // el texto en español disfrazado de traducción.
@@ -478,6 +500,9 @@ const REVISION_CFG = {
       { id: 'd-nombre',    label: 'rev-field-name' },
       { id: 'd-descCorta', label: 'rev-field-short' },
       { id: 'd-desc',      label: 'rev-field-desc', rows: 6 },
+      { id: 'd-cat',       label: 'rev-field-category' },
+      { id: 'd-dur',       label: 'rev-field-duration' },
+      { id: 'd-incluye',   label: 'rev-field-includes', rows: 6 },
     ],
   },
   exp: {
