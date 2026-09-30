@@ -201,7 +201,7 @@ async function renderDestinos() {
           <img src="${d.imagen||'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=100&q=60'}" class="item-thumb" alt="${mlVal(d.nombre,currentLang)}">
           <div class="item-info">
             <strong>${mlVal(d.nombre,currentLang)}</strong>
-            <span>${d.categoria||''} · ${d.duracion||''} · desde $${(d.precio||0).toLocaleString()}</span>
+            <span>${d.categoria||''} · ${d.duracion||''} · ${Number(d.precio) > 0 ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(d.precio) : '—'}</span>
           </div>
           <div class="item-actions">
             <span class="badge-status ${d.activo!==false?'activo':'inactivo'}">${d.activo!==false?t('common-active',currentLang):t('common-hidden',currentLang)}</span>
