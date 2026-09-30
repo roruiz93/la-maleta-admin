@@ -21,6 +21,16 @@ import { auth } from "./firebase-config";
 const WEB_URL = import.meta.env.VITE_WEB_URL || "https://lamaleta.vercel.app";
 const WEB_URL_LOCAL = import.meta.env.VITE_WEB_URL_LOCAL || WEB_URL;
 
+// ─── Escape de datos externos ────────────────────────────
+// Todo lo que viene de las consultas lo escribe cualquier visitante (o un
+// script directo contra Firestore): nunca se inserta como HTML sin escapar.
+function esc(v) {
+  return String(v ?? "").replace(/[&<>"']/g, ch =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+const mailtoHref = email => "mailto:" + encodeURIComponent(String(email || "").trim());
+const telHref    = tel => "tel:" + String(tel || "").replace(/[^\d+]/g, "");
+
 // ─── Estado ───────────────────────────────────────────────
 let CU = null, currentLang = localStorage.getItem("lm_lang") || "es", remoteContent = {};
 let currentSection = "dashboard";
@@ -144,11 +154,11 @@ async function renderDashboard() {
       ${consultas.slice(0,5).map(c=>`
         <div class="consulta-row ${c.leida?'':'consulta-nueva'}">
           <div class="cr-info">
-            <strong>${c.nombre}</strong> · <span style="font-size:12px;color:#888">${c.email}</span>
+            <strong>${esc(c.nombre)}</strong> · <span style="font-size:12px;color:#888">${esc(c.email)}</span>
             ${!c.leida?'<span class="badge-nueva">Nueva</span>':''}
           </div>
-          <div class="cr-msg">${(c.mensaje||'').slice(0,80)}...</div>
-          <div class="cr-fecha">${formatFecha(c.fecha)}</div>
+          <div class="cr-msg">${esc(String(c.mensaje||'').slice(0,80))}...</div>
+          <div class="cr-fecha">${esc(formatFecha(c.fecha))}</div>
         </div>`).join("")}
       ${consultas.length>5?`<button class="btn-link" onclick="showSection('consultas')">Ver todas las consultas →</button>`:''}
     </div>`;
@@ -973,24 +983,25 @@ async function renderConsultas() {
     </div>
     <div class="items-list">
       ${consultas.length ? consultas.map(c=>`
-        <div class="consulta-card ${c.leida?'':'consulta-nueva-card'}" id="c-${c.id}">
+        <div class="consulta-card ${c.leida?'':'consulta-nueva-card'}" id="c-${esc(c.id)}">
           <div class="cc-header">
             <div>
-              <strong>${c.nombre}</strong>
+              <strong>${esc(c.nombre)}</strong>
               ${!c.leida?`<span class="badge-nueva">${t('consultas-new-badge',currentLang)}</span>`:''}
-              <span class="cc-tipo">${c.tipo||c.origen||t('consultas-default-type',currentLang)}</span>
+              <span class="cc-tipo">${esc(c.tipo||c.origen||t('consultas-default-type',currentLang))}</span>
             </div>
-            <span class="cc-fecha">${formatFecha(c.fecha)}</span>
+            <span class="cc-fecha">${esc(formatFecha(c.fecha))}</span>
           </div>
           <div class="cc-contact">
-            📧 <a href="mailto:${c.email}">${c.email}</a>
-            ${c.tel?`· 📱 <a href="tel:${c.tel}">${c.tel}</a>`:''}
-            ${c.destino?`· ✈️ ${c.destino}`:''}
+            📧 <a href="${esc(mailtoHref(c.email))}">${esc(c.email)}</a>
+            ${c.tel?`· 📱 <a href="${esc(telHref(c.tel))}">${esc(c.tel)}</a>`:''}
+            ${c.destino?`· ✈️ ${esc(c.destino)}`:''}
           </div>
-          <div class="cc-msg">${c.mensaje||''}</div>
+          ${c.asunto?`<div class="cc-asunto"><strong>${esc(c.asunto)}</strong></div>`:''}
+          <div class="cc-msg">${esc(c.mensaje)}</div>
           <div class="cc-actions">
-            <a href="mailto:${c.email}?subject=Re: Tu consulta en Viajes La Maleta" class="btn-reply">${t('consultas-reply',currentLang)}</a>
-            ${!c.leida?`<button class="btn-secondary" onclick="marcarLeido('${c.id}')">${t('consultas-mark-read',currentLang)}</button>`:`<span style="font-size:12px;color:#aaa">${t('consultas-read',currentLang)}</span>`}
+            <a href="${esc(mailtoHref(c.email) + '?subject=' + encodeURIComponent('Re: Tu consulta en Viajes La Maleta'))}" class="btn-reply">${t('consultas-reply',currentLang)}</a>
+            ${!c.leida?`<button class="btn-secondary" data-id="${esc(c.id)}" onclick="marcarLeido(this.dataset.id)">${t('consultas-mark-read',currentLang)}</button>`:`<span style="font-size:12px;color:#aaa">${t('consultas-read',currentLang)}</span>`}
           </div>
         </div>`).join("") : `<div class="empty-state-admin">${t('consultas-empty',currentLang)}</div>`}
     </div>`;
@@ -998,7 +1009,7 @@ async function renderConsultas() {
 
 window.marcarLeido = async function(id) {
   await marcarLeida(id);
-  const el = document.getElementById(`c-${id}`);
+  const el = document.getElementById("c-" + id);
   if(el) { el.classList.remove("consulta-nueva-card"); el.querySelector(".badge-nueva")?.remove(); }
   showToast(t('consultas-marked-toast',currentLang));
 };
