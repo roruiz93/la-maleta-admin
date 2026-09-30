@@ -63,8 +63,6 @@ export const WEB_DEFAULTS = {
     "e2-rol": "Asesor de viajes",
     "e3-nombre": "Laura Torres",
     "e3-rol": "Especialista Europa",
-    "e4-nombre": "Martín López",
-    "e4-rol": "Especialista Asia & Oceanía",
     "nos-cta-h": "¿Listo para tu próxima aventura?",
     "nos-cta-p": "Contactanos y armamos el viaje perfecto para vos.",
     "nos-cta-btn": "Hablemos",
@@ -145,8 +143,6 @@ export const WEB_DEFAULTS = {
     "e2-rol": "Assessor de viatges",
     "e3-nombre": "Laura Torres",
     "e3-rol": "Especialista Europa",
-    "e4-nombre": "Martín López",
-    "e4-rol": "Especialista Àsia i Oceania",
     "nos-cta-h": "Preparat per la teva propera aventura?",
     "nos-cta-p": "Contacta'ns i crearem el viatge perfecte per a tu.",
     "nos-cta-btn": "Parlem",
@@ -227,8 +223,6 @@ export const WEB_DEFAULTS = {
     "e2-rol": "Travel Advisor",
     "e3-nombre": "Laura Torres",
     "e3-rol": "Europe Specialist",
-    "e4-nombre": "Martín López",
-    "e4-rol": "Asia & Oceania Specialist",
     "nos-cta-h": "Ready for your next adventure?",
     "nos-cta-p": "Contact us and we'll create the perfect trip for you.",
     "nos-cta-btn": "Let's talk",
@@ -252,6 +246,5 @@ export const WEB_DEFAULTS = {
 export const WEB_DEFAULT_IMAGES = {
   "e1-img": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&q=80",
   "e2-img": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&q=80",
-  "e3-img": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=300&q=80",
-  "e4-img": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&q=80"
+  "e3-img": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=300&q=80"
 };
