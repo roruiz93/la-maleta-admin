@@ -24,3 +24,6 @@ Thumbs.db
 
 # ─── Firebase ──────────────────────────────────────────────
 .firebase/
+
+# ─── Copias de seguridad locales ────────────────────────────
+backups/

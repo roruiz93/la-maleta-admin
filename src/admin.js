@@ -16,6 +16,7 @@ import {
 } from "./firebase.js";
 import { translations, langMeta, t, tf } from "./i18n.js";
 import { WEB_DEFAULTS, WEB_DEFAULT_IMAGES } from "./web-defaults.js";
+import { TRADUCCIONES_PREPARADAS } from "./traducciones-preparadas.js";
 
 import { auth } from "./firebase-config";
 const WEB_URL = import.meta.env.VITE_WEB_URL || "https://lamaleta.vercel.app";
@@ -829,7 +830,11 @@ window.iniciarLote = async function() {
     // Campos en paralelo; destinos de a uno para no saturar el traductor
     await Promise.all(faltantes(x.valores).map(async ([campo, l]) => {
       try {
-        x.valores[campo][l] = await traducir(x.valores[campo].es, l);
+        // Traducción preparada a mano, si el español no cambió; si no, el traductor automático
+        const prep = TRADUCCIONES_PREPARADAS[x.d.id]?.[campo];
+        x.valores[campo][l] = prep && prep.es === x.valores[campo].es && prep[l]
+          ? prep[l]
+          : await traducir(x.valores[campo].es, l);
         x.auto.add(`lote-${campo}-${l}`);
       } catch (e) {
         x.fallos.add(`lote-${campo}-${l}`);
