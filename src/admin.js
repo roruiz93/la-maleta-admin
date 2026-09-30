@@ -16,7 +16,7 @@ import {
 } from "./firebase.js";
 import { translations, langMeta, t, tf } from "./i18n.js";
 import { WEB_DEFAULTS, WEB_DEFAULT_IMAGES } from "./web-defaults.js";
-import { TRADUCCIONES_PREPARADAS } from "./traducciones-preparadas.js";
+import { traducirLote, traducir } from "./traductor.js";
 
 import { auth } from "./firebase-config";
 const WEB_URL = import.meta.env.VITE_WEB_URL || "https://lamaleta.vercel.app";
@@ -547,18 +547,17 @@ async function autoTraducir(tipo) {
   msg.textContent = "";
 
   const auto = new Set(), fallos = new Set();
-  await Promise.all(origen
+  // Todos los campos y los dos idiomas en una sola consulta al traductor
+  const items = origen
     .filter(({ f, text }) => f.translate !== false && text)
-    .flatMap(({ f, text }) => ['en', 'ca'].map(async lang => {
-      const id = `${f.id}-${lang}`;
-      try {
-        document.getElementById(id).value = await traducir(text, lang);
-        auto.add(id);
-      } catch (e) {
-        // No pisar lo que hubiera: el campo queda como estaba y se marca en la revisión
-        fallos.add(id);
-      }
-    })));
+    .flatMap(({ f, text }) => ['en', 'ca'].map(lang => ({ id: `${f.id}-${lang}`, texto: text, destino: lang })));
+  const res = await traducirLote(items);
+  items.forEach(({ id }) => {
+    const r = res.get(id);
+    // Si falla, no se pisa lo que hubiera: el campo queda como estaba y se marca en la revisión
+    if (r.ok) { document.getElementById(id).value = r.texto; auto.add(id); }
+    else fallos.add(id);
+  });
 
   btn.textContent = t('common-auto-translate', currentLang);
   btn.disabled = false;
@@ -588,57 +587,6 @@ function revisionFormulario(tipo) {
       } },
     ],
   };
-}
-
-// MyMemory corta en ~500 bytes por pedido: partimos por párrafos y oraciones.
-async function traducir(texto, destLang, srcLang = 'es') {
-  if (!texto) return '';
-  const parrafos = texto.split('\n');
-  const traducidos = await Promise.all(parrafos.map(async p => {
-    if (!p.trim()) return p;
-    const trozos = partirTexto(p, 450);
-    const res = await Promise.all(trozos.map(tz => traducirTrozo(tz, destLang, srcLang)));
-    return res.join(' ');
-  }));
-  return traducidos.join('\n');
-}
-
-function partirTexto(texto, max) {
-  if (texto.length <= max) return [texto];
-  const oraciones = texto.match(/[^.!?]+[.!?]*\s*/g) || [texto];
-  const trozos = [];
-  let actual = '';
-  for (const o of oraciones) {
-    if ((actual + o).length > max && actual) { trozos.push(actual.trim()); actual = ''; }
-    // Una oración más larga que el máximo se corta por palabras
-    if (o.length > max) {
-      for (const w of o.split(' ')) {
-        if ((actual + w).length > max && actual) { trozos.push(actual.trim()); actual = ''; }
-        actual += w + ' ';
-      }
-    } else actual += o;
-  }
-  if (actual.trim()) trozos.push(actual.trim());
-  return trozos;
-}
-
-async function traducirTrozo(texto, destLang, srcLang = 'es') {
-  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(texto)}&langpair=${srcLang}|${destLang}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    const e = new Error(`HTTP ${res.status}`);
-    e.cuota = res.status === 429;
-    throw e;
-  }
-  const json = await res.json();
-  const out = json.responseData?.translatedText;
-  // Cuando se agota la cuota MyMemory responde 200 pero con un aviso como "traducción"
-  if (Number(json.responseStatus) !== 200 || !out || /MYMEMORY WARNING/i.test(out)) {
-    const e = new Error(json.responseDetails || 'Traducción no disponible');
-    e.cuota = Number(json.responseStatus) === 429 || /QUOTA|LIMIT|MYMEMORY WARNING/i.test(`${json.responseDetails || ''} ${out || ''}`);
-    throw e;
-  }
-  return out;
 }
 
 // rev = { origen, fields:[{id,label,rows?,translate?}], leer(id,lang), acciones:[{label,cls,run(vals)}] }
@@ -827,20 +775,14 @@ window.iniciarLote = async function() {
     if (x.estado !== 'pendiente') continue;
     status.textContent = tf('lote-progress', currentLang, { i: i + 1, n: _lote.length });
     estadoLote(i, 'lote-st-traduciendo');
-    // Campos en paralelo; destinos de a uno para no saturar el traductor
-    await Promise.all(faltantes(x.valores).map(async ([campo, l]) => {
-      try {
-        // Traducción preparada a mano, si el español no cambió; si no, el traductor automático
-        const prep = TRADUCCIONES_PREPARADAS[x.d.id]?.[campo];
-        x.valores[campo][l] = prep && prep.es === x.valores[campo].es && prep[l]
-          ? prep[l]
-          : await traducir(x.valores[campo].es, l);
-        x.auto.add(`lote-${campo}-${l}`);
-      } catch (e) {
-        x.fallos.add(`lote-${campo}-${l}`);
-        if (e.cuota) cuota = true;
-      }
-    }));
+    // Todos los campos faltantes del destino en una sola consulta; destinos de a uno
+    const items = faltantes(x.valores).map(([campo, l]) => ({ id: `lote-${campo}-${l}`, campo, l, texto: x.valores[campo].es, destino: l }));
+    const res = await traducirLote(items);
+    items.forEach(({ id, campo, l }) => {
+      const r = res.get(id);
+      if (r.ok) { x.valores[campo][l] = r.texto; x.auto.add(id); }
+      else { x.fallos.add(id); if (r.cuota) cuota = true; }
+    });
     if (x.auto.size) {
       x.estado = 'traducido';
       estadoLote(i, x.fallos.size ? 'lote-st-parcial' : 'lote-st-traducido', x.fallos.size ? 'warn' : 'ok');
@@ -2059,20 +2001,21 @@ async function renderContenido() {
 
     const otros = REV_LANGS.filter(l => l !== editLang);
     const auto = new Set(), fallos = new Set(), traducidos = {};
-    await Promise.all(cambiados.flatMap(key => otros.map(async l => {
+    const items = [];
+    cambiados.forEach(key => otros.forEach(l => {
       const texto = actuales[key];
       traducidos[key] = traducidos[key] || {};
       // Números y similares ("+500", "98%") se copian tal cual
       if (!/\p{L}/u.test(texto)) { traducidos[key][l] = texto; return; }
-      try {
-        // Los <br> de la web viajan como saltos de línea para que el traductor no los rompa
-        const out = await traducir(texto.replace(/<br\s*\/?>/gi, "\n"), l, editLang);
-        traducidos[key][l] = out.replace(/\n/g, "<br>");
-        auto.add(`cms-${key}-${l}`);
-      } catch (e) {
-        fallos.add(`cms-${key}-${l}`);
-      }
-    })));
+      // Los <br> de la web viajan como saltos de línea para que el traductor no los rompa
+      items.push({ id: `cms-${key}-${l}`, key, l, texto: texto.replace(/<br\s*\/?>/gi, "\n"), destino: l, origen: editLang });
+    }));
+    const res = await traducirLote(items);
+    items.forEach(({ id, key, l }) => {
+      const r = res.get(id);
+      if (r.ok) { traducidos[key][l] = r.texto.replace(/\n/g, "<br>"); auto.add(id); }
+      else fallos.add(id);
+    });
 
     btn.disabled = false;
     btn.textContent = t('cms-tr-btn', currentLang);

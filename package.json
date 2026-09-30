@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "dotenv": "^17.3.1",
-    "firebase": "^10.14.1"
+    "firebase": "^12.19.0"
   },
   "devDependencies": {
     "terser": "^5.26.0",
