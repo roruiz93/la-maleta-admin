@@ -1266,7 +1266,17 @@ async function renderSettings() {
         <div class="form-field"><label>${translate('settings-phone')}</label><input id="s-tel" value="${s.tel||''}" placeholder="+34 606 715 917"></div>
         <div class="form-field"><label>${translate('settings-email')}</label><input id="s-email" value="${s.email||''}" placeholder="info@lamaleta.com"></div>
         <div class="form-field"><label>${translate('settings-address')}</label><input id="s-addr" value="${s.addr||''}" placeholder="Rambla Sant Martí, 62 · Arenys de Munt"></div>
-        <div class="form-field"><label>${translate('settings-hours')}</label><input id="s-hours" value="${s.hours||''}" placeholder="Lun–Vie 9:00–18:00"></div>
+        <div class="form-field">
+          <label>${translate('settings-hours')}</label>
+          <div class="horario-idiomas">
+            ${['es','ca','en'].map(l => `
+              <div class="horario-fila">
+                <span class="horario-lang">${langMeta[l].flag} ${l.toUpperCase()}</span>
+                <input id="s-hours-${l}" value="${esc(horarioIdioma(s.hours, l))}" placeholder="${l === 'es' ? 'Lunes a viernes · 9:30–14:00 h' : ''}">
+              </div>`).join('')}
+            <button type="button" class="btn-upload" id="btn-traducir-horario" onclick="traducirHorario()">${t('settings-hours-translate', currentLang)}</button>
+          </div>
+        </div>
       </div>
       <div class="settings-card">
         <div class="settings-card-title">${translate('settings-colors')}</div>
@@ -1377,6 +1387,33 @@ window.resetColoresDefault = function() {
   previewColor();
 };
 
+// Horario: texto (formato viejo, en español) o { es, ca, en }
+function horarioIdioma(h, lang) {
+  if (!h) return "";
+  if (typeof h === "object") return h[lang] || "";
+  return lang === "es" ? h : "";
+}
+
+// Completa catalán e inglés desde el español (quedan editables antes de guardar)
+window.traducirHorario = async function() {
+  const es = document.getElementById("s-hours-es").value.trim();
+  if (!es) return;
+  const btn = document.getElementById("btn-traducir-horario");
+  btn.disabled = true;
+  btn.textContent = t('common-translating', currentLang);
+  try {
+    const [ca, en] = await Promise.all([traducir(es, 'ca'), traducir(es, 'en')]);
+    document.getElementById("s-hours-ca").value = ca;
+    document.getElementById("s-hours-en").value = en;
+    showToast(t('settings-hours-translated', currentLang));
+  } catch (e) {
+    showToast(t(e.cuota ? 'translate-quota' : 'common-translate-error', currentLang));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t('settings-hours-translate', currentLang);
+  }
+};
+
 // WhatsApp (wa.me) necesita el número internacional solo con dígitos.
 // Un número español sin prefijo (9 dígitos, empieza por 6-9) se completa con 34.
 function normalizarWhatsapp(raw) {
@@ -1394,7 +1431,11 @@ window.guardarSettings = async function() {
     tel:         document.getElementById("s-tel").value.trim(),
     email:       document.getElementById("s-email").value.trim(),
     addr:        document.getElementById("s-addr").value.trim(),
-    hours:       document.getElementById("s-hours").value.trim(),
+    hours: {
+      es: document.getElementById("s-hours-es").value.trim(),
+      ca: document.getElementById("s-hours-ca").value.trim(),
+      en: document.getElementById("s-hours-en").value.trim(),
+    },
     defaultLang: document.getElementById("s-lang").value,
     gold:    document.getElementById("cp-gold").value,
     bg:      document.getElementById("cp-bg").value,
