@@ -8,7 +8,7 @@ import {
   getUserProfile, getAllUsers, createUser, deleteUserProfile,
   saveContent, listenContent,
   saveSettings, listenSettings, getSettings,
-  getDestinos, saveDestino, deleteDestino,
+  getDestinos, saveDestino, deleteDestino, updateDestinoTextos,
   getExperiencias, saveExperiencia, deleteExperiencia,
   getPosts, getPost, savePost, deletePost,
   getConsultas, marcarLeida, uploadImage,
@@ -190,10 +190,14 @@ async function renderDashboard() {
 // ─── DESTINOS ─────────────────────────────────────────────
 async function renderDestinos() {
   const items = await getDestinos();
+  const pendientesTrad = items.filter(d => faltantes(valoresDestino(d)).length).length;
   document.getElementById("section-content").innerHTML = `
     <div class="sec-header">
       <h2>${t('destinos-title',currentLang)}</h2>
-      <button class="btn-primary" onclick="abrirModalDestino()">${t('destinos-new',currentLang)}</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${pendientesTrad ? `<button class="btn-secondary" onclick="abrirLoteTraduccion()">${tf('lote-btn',currentLang,{n:pendientesTrad})}</button>` : ''}
+        <button class="btn-primary" onclick="abrirModalDestino()">${t('destinos-new',currentLang)}</button>
+      </div>
     </div>
     <div class="items-list">
       ${items.length ? items.map(d=>`
@@ -620,12 +624,18 @@ function partirTexto(texto, max) {
 async function traducirTrozo(texto, destLang, srcLang = 'es') {
   const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(texto)}&langpair=${srcLang}|${destLang}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const e = new Error(`HTTP ${res.status}`);
+    e.cuota = res.status === 429;
+    throw e;
+  }
   const json = await res.json();
   const out = json.responseData?.translatedText;
   // Cuando se agota la cuota MyMemory responde 200 pero con un aviso como "traducción"
   if (Number(json.responseStatus) !== 200 || !out || /MYMEMORY WARNING/i.test(out)) {
-    throw new Error(json.responseDetails || 'Traducción no disponible');
+    const e = new Error(json.responseDetails || 'Traducción no disponible');
+    e.cuota = Number(json.responseStatus) === 429 || /QUOTA|LIMIT|MYMEMORY WARNING/i.test(`${json.responseDetails || ''} ${out || ''}`);
+    throw e;
   }
   return out;
 }
@@ -724,6 +734,172 @@ window.accionRevision = async function(i) {
   } catch (e) {
     showToast("❌ " + t('common-error', currentLang) + ": " + e.message);
   }
+};
+
+// ─── Traducir destinos pendientes (por lotes) ────────────
+// Traduce del español a EN/CA solo los campos que faltan, destino por destino.
+// Si se agota la cuota diaria del traductor, se detiene: lo que falta se
+// retoma otro día con el mismo botón. Nada se guarda sin que el usuario lo pida,
+// y al guardar solo se actualizan los campos de texto (merge).
+const LOTE_CAMPOS = [
+  { id: 'nombre',           label: 'rev-field-name' },
+  { id: 'descripcionCorta', label: 'rev-field-short' },
+  { id: 'descripcion',      label: 'rev-field-desc', rows: 6 },
+  { id: 'categoria',        label: 'rev-field-category' },
+  { id: 'duracion',         label: 'rev-field-duration' },
+  { id: 'incluye',          label: 'rev-field-includes', rows: 6, lista: true },
+];
+let _lote = [];   // [{ d, valores: {campo:{es,en,ca}}, auto:Set, fallos:Set, estado }]
+
+function valoresDestino(d) {
+  const v = {};
+  LOTE_CAMPOS.forEach(c => {
+    v[c.id] = {};
+    REV_LANGS.forEach(l => {
+      v[c.id][l] = c.lista ? mlListEdit(d[c.id], l).join("\n") : (l === 'es' ? mlVal(d[c.id], 'es') : mlEdit(d[c.id], l));
+    });
+  });
+  return v;
+}
+
+function faltantes(v) {
+  const out = [];
+  LOTE_CAMPOS.forEach(c => ['en', 'ca'].forEach(l => {
+    if (v[c.id].es.trim() && !v[c.id][l].trim()) out.push([c.id, l]);
+  }));
+  return out;
+}
+
+window.abrirLoteTraduccion = async function() {
+  let modal = document.getElementById("modal-lote");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "modal-lote";
+    modal.className = "modal";
+    document.body.appendChild(modal);
+  }
+  const items = await getDestinos();
+  _lote = items
+    .map(d => ({ d, valores: valoresDestino(d), auto: new Set(), fallos: new Set(), estado: 'pendiente' }))
+    .filter(x => faltantes(x.valores).length);
+
+  modal.innerHTML = `
+    <div class="modal-box modal-wide">
+      <div class="modal-header">
+        <h3>${t('lote-title', currentLang)}</h3>
+        <button onclick="cerrarModal('modal-lote')">×</button>
+      </div>
+      <div class="modal-body">
+        ${_lote.length ? `
+          <p class="rev-desc">${tf('lote-desc', currentLang, { n: _lote.length })}</p>
+          <div class="lote-acciones">
+            <button class="btn-primary" id="lote-start" onclick="iniciarLote()">${t('lote-start', currentLang)}</button>
+            <button class="btn-secondary" id="lote-save-all" onclick="guardarLoteTodos()" disabled>${t('lote-save-all', currentLang)}</button>
+            <span id="lote-status" class="lote-status"></span>
+          </div>
+          <div class="lote-lista">${_lote.map((x, i) => `
+            <div class="lote-row" id="lote-row-${i}">
+              <span class="lote-nombre">${esc(mlVal(x.d.nombre, 'es'))}</span>
+              <span class="lote-estado" id="lote-estado-${i}">${t('lote-st-pendiente', currentLang)}</span>
+              <button class="btn-upload" id="lote-rev-${i}" onclick="revisarLote(${i})" disabled>${t('lote-review', currentLang)}</button>
+            </div>`).join("")}
+          </div>`
+        : `<div class="empty-state-admin">${t('lote-none', currentLang)}</div>`}
+      </div>
+    </div>`;
+  modal.style.display = "flex";
+};
+
+function estadoLote(i, key, clase = "") {
+  const el = document.getElementById(`lote-estado-${i}`);
+  if (el) { el.textContent = t(key, currentLang); el.dataset.estado = clase; }
+}
+
+window.iniciarLote = async function() {
+  const start = document.getElementById("lote-start");
+  const status = document.getElementById("lote-status");
+  start.disabled = true;
+  let cuota = false;
+
+  for (let i = 0; i < _lote.length && !cuota; i++) {
+    const x = _lote[i];
+    if (x.estado !== 'pendiente') continue;
+    status.textContent = tf('lote-progress', currentLang, { i: i + 1, n: _lote.length });
+    estadoLote(i, 'lote-st-traduciendo');
+    // Campos en paralelo; destinos de a uno para no saturar el traductor
+    await Promise.all(faltantes(x.valores).map(async ([campo, l]) => {
+      try {
+        x.valores[campo][l] = await traducir(x.valores[campo].es, l);
+        x.auto.add(`lote-${campo}-${l}`);
+      } catch (e) {
+        x.fallos.add(`lote-${campo}-${l}`);
+        if (e.cuota) cuota = true;
+      }
+    }));
+    if (x.auto.size) {
+      x.estado = 'traducido';
+      estadoLote(i, x.fallos.size ? 'lote-st-parcial' : 'lote-st-traducido', x.fallos.size ? 'warn' : 'ok');
+      document.getElementById(`lote-rev-${i}`).disabled = false;
+    } else {
+      estadoLote(i, cuota ? 'lote-st-pendiente' : 'lote-st-fallo', 'warn');
+    }
+  }
+
+  const traducidos = _lote.filter(x => x.estado === 'traducido').length;
+  status.textContent = cuota ? t('lote-quota', currentLang) : tf('lote-done', currentLang, { n: traducidos });
+  status.dataset.estado = cuota ? 'warn' : 'ok';
+  document.getElementById("lote-save-all").disabled = !traducidos;
+  start.disabled = !cuota;
+};
+
+async function guardarLoteItem(x, vals) {
+  const data = {};
+  LOTE_CAMPOS.forEach(c => {
+    data[c.id] = {};
+    REV_LANGS.forEach(l => {
+      const v = (vals[`lote-${c.id}`] || x.valores[c.id])[l] || "";
+      data[c.id][l] = c.lista ? v.split("\n").map(s => s.trim()).filter(Boolean) : v.trim();
+    });
+  });
+  await updateDestinoTextos(x.d.id, data);
+  x.estado = 'guardado';
+}
+
+window.revisarLote = function(i) {
+  const x = _lote[i];
+  abrirRevision({
+    origen: 'es',
+    fields: LOTE_CAMPOS.map(c => ({ id: `lote-${c.id}`, label: t(c.label, currentLang), rows: c.rows })),
+    leer: (id, l) => x.valores[id.slice(5)][l],
+    acciones: [{
+      label: t('lote-save-one', currentLang), cls: 'btn-primary',
+      run: async vals => {
+        await guardarLoteItem(x, vals);
+        LOTE_CAMPOS.forEach(c => REV_LANGS.forEach(l => { x.valores[c.id][l] = vals[`lote-${c.id}`][l]; }));
+        estadoLote(i, 'lote-st-guardado', 'ok');
+        document.getElementById(`lote-rev-${i}`).disabled = true;
+        showToast(t('lote-saved-toast', currentLang));
+      },
+    }],
+  }, { auto: new Set([...x.auto]), fallos: new Set([...x.fallos]) });
+};
+
+window.guardarLoteTodos = async function() {
+  const pendientes = _lote.map((x, i) => [x, i]).filter(([x]) => x.estado === 'traducido');
+  if (!pendientes.length || !confirm(tf('lote-save-all-confirm', currentLang, { n: pendientes.length }))) return;
+  const btn = document.getElementById("lote-save-all");
+  btn.disabled = true;
+  for (const [x, i] of pendientes) {
+    try {
+      await guardarLoteItem(x, {});
+      estadoLote(i, 'lote-st-guardado', 'ok');
+      document.getElementById(`lote-rev-${i}`).disabled = true;
+    } catch (e) {
+      estadoLote(i, 'lote-st-fallo', 'warn');
+    }
+  }
+  showToast(t('lote-saved-toast', currentLang));
+  renderDestinos();
 };
 
 window.abrirModalExp = function(e={}) {

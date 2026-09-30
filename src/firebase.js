@@ -232,6 +232,12 @@ export async function getDestino(id) {
 }
 
 // 🔥 ESTE ES EL FIX
+// Actualiza solo los campos de texto indicados (merge): no toca imágenes,
+// precio ni el resto del destino.
+export async function updateDestinoTextos(id, campos) {
+  await setDoc(doc(db, "destinos", id), campos, { merge: true });
+}
+
 export async function saveDestino(id, data) {
   let imagenes = data.imagenes || [];
 
