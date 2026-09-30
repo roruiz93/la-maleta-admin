@@ -4,7 +4,7 @@ import {
   initConcurrencyCheck
 } from "./admin-security.js";
 import {
-  loginUser, logoutUser, onAuthChange,
+  loginUser, logoutUser, onAuthChange, resetPassword,
   getUserProfile, getAllUsers, createUser, deleteUserProfile,
   saveContent, listenContent,
   saveSettings, listenSettings, getSettings,
@@ -71,6 +71,28 @@ window.doLogin = async function() {
   }
 };
 window.doLogout = async () => { await logoutUser(); };
+
+// Recuperar contraseña: el mensaje es el mismo exista o no la cuenta, para no
+// revelar qué emails están registrados.
+window.doResetPassword = async function() {
+  const email = document.getElementById("lu").value.trim();
+  const err = document.getElementById("lerr");
+  const ok  = document.getElementById("lok");
+  const btn = document.getElementById("login-forgot");
+  err.textContent = ""; ok.textContent = "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = t('login-reset-need-email', currentLang); return; }
+  btn.disabled = true;
+  try {
+    await resetPassword(email, currentLang);
+    ok.textContent = t('login-reset-sent', currentLang);
+  } catch (e) {
+    if (e.code === "auth/too-many-requests") err.textContent = t('login-reset-too-many', currentLang);
+    else if (e.code === "auth/invalid-email") err.textContent = t('login-reset-need-email', currentLang);
+    else ok.textContent = t('login-reset-sent', currentLang);
+  } finally {
+    btn.disabled = false;
+  }
+};
 
 function showLogin() {
   document.getElementById("login-screen").style.display = "flex";
@@ -1026,8 +1048,8 @@ async function renderSettings() {
       <div class="settings-card">
         <div class="settings-card-title">${translate('settings-whatsapp')}</div>
         <div class="form-field"><label>${translate('settings-whatsapp-number')}</label>
-          <input id="s-wa" value="${s.whatsapp||''}" placeholder="5491112345678">
-          <span class="field-hint">Formato: código país + área + número. Ej: 5491112345678</span>
+          <input id="s-wa" value="${s.whatsapp||''}" placeholder="34606715917" inputmode="tel">
+          <span class="field-hint">${translate('settings-whatsapp-hint')}</span>
         </div>
         <div class="form-field"><label>${translate('settings-whatsapp-msg')}</label>
           <input id="s-wa-msg" value="${s.whatsappMsg||'Hola, quisiera información sobre sus viajes'}">
@@ -1035,9 +1057,9 @@ async function renderSettings() {
       </div>
       <div class="settings-card">
         <div class="settings-card-title">${translate('settings-contact')}</div>
-        <div class="form-field"><label>${translate('settings-phone')}</label><input id="s-tel" value="${s.tel||''}" placeholder="+54 9 11 0000-0000"></div>
+        <div class="form-field"><label>${translate('settings-phone')}</label><input id="s-tel" value="${s.tel||''}" placeholder="+34 606 715 917"></div>
         <div class="form-field"><label>${translate('settings-email')}</label><input id="s-email" value="${s.email||''}" placeholder="info@lamaleta.com"></div>
-        <div class="form-field"><label>${translate('settings-address')}</label><input id="s-addr" value="${s.addr||''}" placeholder="Buenos Aires, Argentina"></div>
+        <div class="form-field"><label>${translate('settings-address')}</label><input id="s-addr" value="${s.addr||''}" placeholder="Rambla Sant Martí, 62 · Arenys de Munt"></div>
         <div class="form-field"><label>${translate('settings-hours')}</label><input id="s-hours" value="${s.hours||''}" placeholder="Lun–Vie 9:00–18:00"></div>
       </div>
       <div class="settings-card">
@@ -1149,10 +1171,19 @@ window.resetColoresDefault = function() {
   previewColor();
 };
 
+// WhatsApp (wa.me) necesita el número internacional solo con dígitos.
+// Un número español sin prefijo (9 dígitos, empieza por 6-9) se completa con 34.
+function normalizarWhatsapp(raw) {
+  let d = String(raw || "").replace(/\D/g, "");
+  if (d.startsWith("00")) d = d.slice(2);
+  if (d.length === 9 && /^[6-9]/.test(d)) d = "34" + d;
+  return d;
+}
+
 window.guardarSettings = async function() {
   const currentSettings = await getSettings();
   const data = {
-    whatsapp:    document.getElementById("s-wa").value.trim(),
+    whatsapp:    normalizarWhatsapp(document.getElementById("s-wa").value),
     whatsappMsg: document.getElementById("s-wa-msg").value.trim(),
     tel:         document.getElementById("s-tel").value.trim(),
     email:       document.getElementById("s-email").value.trim(),

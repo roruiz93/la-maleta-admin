@@ -420,3 +420,10 @@ table.ut td { padding:10px 11px; border-bottom:1px solid var(--border); font-siz
 
 .cp-hint { font-size:12px; color:var(--text-l); margin-top:8px; }
 .cc-asunto { font-size:13px; margin:6px 0 2px; color:var(--primary); }
+
+/* ─── Recuperar contraseña ─── */
+.ls-link { display:block; margin:14px auto 0; background:none; border:none; color:var(--text-l); font-family:'Lato',sans-serif; font-size:13px; text-decoration:underline; cursor:pointer; }
+.ls-link:hover { color:var(--gold); }
+.ls-link:disabled { opacity:.5; cursor:default; }
+.ls-ok { color:#2e7d32; font-size:13px; text-align:center; margin-top:10px; line-height:1.4; }
+.ls-ok:empty { display:none; }

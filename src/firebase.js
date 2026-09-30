@@ -4,7 +4,8 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  createUserWithEmailAndPassword
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail
 } from "firebase/auth";
 import {
   getFirestore,
@@ -65,6 +66,12 @@ export async function uploadImageConId(file) {
 // ─────────────────────────────
 export async function loginUser(email, password) {
   return signInWithEmailAndPassword(auth, email, password);
+}
+// Mail de Firebase con un enlace para crear una contraseña nueva.
+// lang: idioma de la plantilla del mail (es / ca / en).
+export async function resetPassword(email, lang) {
+  auth.languageCode = lang || "es";
+  return sendPasswordResetEmail(auth, email);
 }
 export async function logoutUser() {
   return signOut(auth);
