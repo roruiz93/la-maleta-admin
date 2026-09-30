@@ -7,14 +7,15 @@ import {
   loginUser, logoutUser, onAuthChange,
   getUserProfile, getAllUsers, createUser, deleteUserProfile,
   saveContent, listenContent,
-  saveColors, listenColors,
   saveSettings, listenSettings, getSettings,
   getDestinos, saveDestino, deleteDestino,
   getExperiencias, saveExperiencia, deleteExperiencia,
   getPosts, getPost, savePost, deletePost,
-  getConsultas, marcarLeida, uploadImage
+  getConsultas, marcarLeida, uploadImage,
+  uploadImageConId, replaceSiteImage, listenImages
 } from "./firebase.js";
 import { translations, langMeta, t, tf } from "./i18n.js";
+import { WEB_DEFAULTS, WEB_DEFAULT_IMAGES } from "./web-defaults.js";
 
 import { auth } from "./firebase-config";
 const WEB_URL = import.meta.env.VITE_WEB_URL || "https://lamaleta.vercel.app";
@@ -63,7 +64,7 @@ window.doLogout = async () => { await logoutUser(); };
 function showLogin() {
   document.getElementById("login-screen").style.display = "flex";
   document.getElementById("cms-panel").style.display = "none";
-  // Aplicar traducciones también en la pantalla de login
+ 
   applyAdminTranslations(currentLang);
 }
 function showCMS() {
@@ -84,12 +85,11 @@ function setupCMS() {
   const canManageUsers = isSA || CU.role === "admin";
   document.getElementById("btn-users").style.display  = canManageUsers ? "inline-flex" : "none";
   document.getElementById("super-sep").style.display  = canManageUsers ? "block" : "none";
-  // Enlace de vista previa removido - ahora usamos iframe integrado
+
   buildLangSwitchers();
   applyAdminTranslations(currentLang);
-  // FIX: listener centralizado de contenido — actualiza remoteContent global
+
   listenContent(d => { if (d) remoteContent = d; });
-  listenColors(syncColorPickers);
   showSection("dashboard");
 }
 
@@ -165,15 +165,15 @@ async function renderDestinos() {
     <div class="items-list">
       ${items.length ? items.map(d=>`
         <div class="item-row">
-          <img src="${d.imagen||'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=100&q=60'}" class="item-thumb" alt="${mlVal(d.nombre,'es')}">
+          <img src="${d.imagen||'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=100&q=60'}" class="item-thumb" alt="${mlVal(d.nombre,currentLang)}">
           <div class="item-info">
-            <strong>${mlVal(d.nombre,'es')}</strong>
+            <strong>${mlVal(d.nombre,currentLang)}</strong>
             <span>${d.categoria||''} · ${d.duracion||''} · desde $${(d.precio||0).toLocaleString()}</span>
           </div>
           <div class="item-actions">
             <span class="badge-status ${d.activo!==false?'activo':'inactivo'}">${d.activo!==false?t('common-active',currentLang):t('common-hidden',currentLang)}</span>
             <button class="btn-edit" onclick="editarDestino('${d.id}')">✏️ ${t('common-edit',currentLang)}</button>
-            <button class="btn-del"  onclick="eliminarDestino('${d.id}','${mlVal(d.nombre,'es').replace(/'/g,"\\'")}')">🗑</button>
+            <button class="btn-del"  onclick="eliminarDestino('${d.id}','${mlVal(d.nombre,currentLang).replace(/'/g,"\\'")}')">🗑</button>
           </div>
         </div>`).join("") : `<div class="empty-state-admin">${t('destinos-empty',currentLang)}</div>`}
     </div>
@@ -209,7 +209,8 @@ window.abrirModalDestino = function(d={}) {
           <button id="dest-tab-es" class="btn-tab active" onclick="destLang('es')">🇪🇸 Español</button>
           <button id="dest-tab-en" class="btn-tab"        onclick="destLang('en')">🇬🇧 English</button>
           <button id="dest-tab-ca" class="btn-tab"        onclick="destLang('ca')">🏴 Català</button>
-          <button class="btn-upload" onclick="autoTraducirDest()" style="margin-left:auto">${t('common-auto-translate',currentLang)}</button>
+          <button class="btn-upload" data-autotrad onclick="autoTraducirDest()" style="margin-left:auto">${t('common-auto-translate',currentLang)}</button>
+          <button class="btn-upload" onclick="revisarTraducciones('dest')">${t('rev-open',currentLang)}</button>
         </div>
 
         <div id="dest-fields-es">
@@ -385,12 +386,12 @@ async function renderExperiencias() {
     <div class="items-list">
       ${items.length ? items.map(e=>`
         <div class="item-row">
-          <img src="${e.imagen||'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=100&q=60'}" class="item-thumb" alt="${mlVal(e.nombre,'es')}">
-          <div class="item-info"><strong>${mlVal(e.nombre,'es')}</strong><span>${e.categoria||''}</span></div>
+          <img src="${e.imagen||'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=100&q=60'}" class="item-thumb" alt="${mlVal(e.nombre,currentLang)}">
+          <div class="item-info"><strong>${mlVal(e.nombre,currentLang)}</strong><span>${e.categoria||''}</span></div>
           <div class="item-actions">
             <span class="badge-status ${e.activo!==false?'activo':'inactivo'}">${e.activo!==false?t('common-active',currentLang):t('common-hidden',currentLang)}</span>
             <button class="btn-edit" onclick="editarExp('${e.id}')">✏️ ${t('common-edit',currentLang)}</button>
-            <button class="btn-del"  onclick="eliminarExp('${e.id}','${mlVal(e.nombre,'es').replace(/'/g,"\\'")}')">🗑</button>
+            <button class="btn-del"  onclick="eliminarExp('${e.id}','${mlVal(e.nombre,currentLang).replace(/'/g,"\\'")}')">🗑</button>
           </div>
         </div>`).join("") : `<div class="empty-state-admin">${t('exp-empty',currentLang)}</div>`}
     </div>
@@ -433,124 +434,237 @@ window.postLang = function(lang) {
   });
 };
 
-window.autoTraducirPost = async function() {
-  const tituloEs  = document.getElementById("p-titulo-es").value.trim();
-  const resumenEs = document.getElementById("p-resumen-es").value.trim();
-
-  if (!tituloEs) {
-    document.getElementById("modal-post-msg").textContent = t('blog-fill-title-first',currentLang);
-    return;
-  }
-
-  const btn = document.querySelector('[onclick="autoTraducirPost()"]');
-  btn.textContent = t('common-translating',currentLang);
-  btn.disabled = true;
-  document.getElementById("modal-post-msg").textContent = "";
-
-  try {
-    const [tituloEn, tituloCa, resumenEn, resumenCa] = await Promise.all([
-      traducir(tituloEs,  'en'),
-      traducir(tituloEs,  'ca'),
-      traducir(resumenEs, 'en'),
-      traducir(resumenEs, 'ca'),
-    ]);
-
-    document.getElementById("p-titulo-en").value  = tituloEn;
-    document.getElementById("p-titulo-ca").value  = tituloCa;
-    document.getElementById("p-resumen-en").value = resumenEn;
-    document.getElementById("p-resumen-ca").value = resumenCa;
-
-    showToast(t('blog-translated-toast',currentLang));
-  } catch(err) {
-    document.getElementById("modal-post-msg").textContent = t('common-translate-error',currentLang);
-  } finally {
-    btn.textContent = t('common-auto-translate',currentLang);
-    btn.disabled = false;
-  }
+// ─── Traducción automática + panel de revisión ───────────
+// Cada formulario multi-idioma declara sus campos: `id` es el prefijo de los
+// inputs (`${id}-es`, `${id}-en`, `${id}-ca`). `translate:false` = el campo
+// se muestra en la revisión pero no se manda a traducir (ej: HTML del post).
+const REVISION_CFG = {
+  dest: {
+    modal: 'modal-destino', msg: 'modal-msg', requiredKey: 'common-fill-name-first',
+    fields: [
+      { id: 'd-nombre',    label: 'rev-field-name' },
+      { id: 'd-descCorta', label: 'rev-field-short' },
+      { id: 'd-desc',      label: 'rev-field-desc', rows: 6 },
+    ],
+  },
+  exp: {
+    modal: 'modal-exp', msg: 'modal-exp-msg', requiredKey: 'common-fill-name-first',
+    fields: [
+      { id: 'e-nombre', label: 'rev-field-name' },
+      { id: 'e-desc',   label: 'rev-field-desc', rows: 5 },
+    ],
+  },
+  post: {
+    modal: 'modal-post', msg: 'modal-post-msg', requiredKey: 'blog-fill-title-first',
+    fields: [
+      { id: 'p-titulo',    label: 'rev-field-title' },
+      { id: 'p-resumen',   label: 'rev-field-summary', rows: 3 },
+      { id: 'p-contenido', label: 'rev-field-content', rows: 8, translate: false },
+    ],
+  },
 };
 
-window.autoTraducirDest = async function() {
-  const nombreEs = document.getElementById("d-nombre-es").value.trim();
-  const cortaEs  = document.getElementById("d-descCorta-es").value.trim();
-  const descEs   = document.getElementById("d-desc-es").value.trim();
+const REV_LANGS = ['es', 'en', 'ca'];
 
-  if (!nombreEs) {
-    document.getElementById("modal-msg").textContent = t('common-fill-name-first',currentLang);
-    return;
-  }
+window.autoTraducirDest = () => autoTraducir('dest');
+window.autoTraducirExp  = () => autoTraducir('exp');
+window.autoTraducirPost = () => autoTraducir('post');
+window.revisarTraducciones = (tipo) => abrirRevision(revisionFormulario(tipo));
 
-  const btn = document.querySelector('[onclick="autoTraducirDest()"]');
-  btn.textContent = t('common-translating',currentLang);
+async function autoTraducir(tipo) {
+  const cfg = REVISION_CFG[tipo];
+  const msg = document.getElementById(cfg.msg);
+  const origen = cfg.fields.map(f => ({ f, text: document.getElementById(`${f.id}-es`).value.trim() }));
+
+  if (!origen[0].text) { msg.textContent = t(cfg.requiredKey, currentLang); return; }
+
+  const btn = document.querySelector(`#${cfg.modal} [data-autotrad]`);
+  btn.textContent = t('common-translating', currentLang);
   btn.disabled = true;
-  document.getElementById("modal-msg").textContent = "";
+  msg.textContent = "";
 
-  try {
-    const [nombreEn, nombreCa, cortaEn, cortaCa, descEn, descCa] = await Promise.all([
-      traducir(nombreEs, 'en'),
-      traducir(nombreEs, 'ca'),
-      traducir(cortaEs,  'en'),
-      traducir(cortaEs,  'ca'),
-      traducir(descEs,   'en'),
-      traducir(descEs,   'ca'),
-    ]);
+  const auto = new Set(), fallos = new Set();
+  await Promise.all(origen
+    .filter(({ f, text }) => f.translate !== false && text)
+    .flatMap(({ f, text }) => ['en', 'ca'].map(async lang => {
+      const id = `${f.id}-${lang}`;
+      try {
+        document.getElementById(id).value = await traducir(text, lang);
+        auto.add(id);
+      } catch (e) {
+        // No pisar lo que hubiera: el campo queda como estaba y se marca en la revisión
+        fallos.add(id);
+      }
+    })));
 
-    document.getElementById("d-nombre-en").value   = nombreEn;
-    document.getElementById("d-nombre-ca").value   = nombreCa;
-    document.getElementById("d-descCorta-en").value = cortaEn;
-    document.getElementById("d-descCorta-ca").value = cortaCa;
-    document.getElementById("d-desc-en").value     = descEn;
-    document.getElementById("d-desc-ca").value     = descCa;
+  btn.textContent = t('common-auto-translate', currentLang);
+  btn.disabled = false;
 
-    showToast(t('common-translated-toast',currentLang));
-  } catch(err) {
-    document.getElementById("modal-msg").textContent = t('common-translate-error',currentLang);
-  } finally {
-    btn.textContent = t('common-auto-translate',currentLang);
-    btn.disabled = false;
-  }
-};
+  if (fallos.size && !auto.size) msg.textContent = t('common-translate-error', currentLang);
+  else showToast(t(fallos.size ? 'rev-some-failed' : 'common-translated-toast', currentLang));
 
-async function traducir(texto, destLang) {
-  if (!texto) return '';
-  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(texto)}&langpair=es|${destLang}`;
-  const res = await fetch(url);
-  const json = await res.json();
-  return json.responseData?.translatedText || texto;
+  abrirRevision(revisionFormulario(tipo), { auto, fallos });
 }
 
-window.autoTraducirExp = async function() {
-  const nombreEs = document.getElementById("e-nombre-es").value.trim();
-  const descEs   = document.getElementById("e-desc-es").value.trim();
+// Revisión de un modal (destino/experiencia/post): lee y escribe sus inputs
+function revisionFormulario(tipo) {
+  const cfg = REVISION_CFG[tipo];
+  const escribir = vals => cfg.fields.forEach(f => REV_LANGS.forEach(l => {
+    document.getElementById(`${f.id}-${l}`).value = vals[f.id][l];
+  }));
+  return {
+    origen: 'es',
+    fields: cfg.fields.map(f => ({ ...f, label: t(f.label, currentLang) })),
+    leer: (id, l) => document.getElementById(`${id}-${l}`).value,
+    acciones: [
+      { label: t('rev-apply', currentLang), cls: 'btn-secondary', run: vals => {
+        escribir(vals); showToast(t('rev-applied-toast', currentLang));
+      } },
+      { label: t('rev-apply-save', currentLang), cls: 'btn-primary', run: vals => {
+        escribir(vals); document.querySelector(`#${cfg.modal} .modal-footer .btn-primary`).click();
+      } },
+    ],
+  };
+}
 
-  if (!nombreEs) {
-    document.getElementById("modal-exp-msg").textContent = t('common-fill-name-first',currentLang);
-    return;
+// MyMemory corta en ~500 bytes por pedido: partimos por párrafos y oraciones.
+async function traducir(texto, destLang, srcLang = 'es') {
+  if (!texto) return '';
+  const parrafos = texto.split('\n');
+  const traducidos = await Promise.all(parrafos.map(async p => {
+    if (!p.trim()) return p;
+    const trozos = partirTexto(p, 450);
+    const res = await Promise.all(trozos.map(tz => traducirTrozo(tz, destLang, srcLang)));
+    return res.join(' ');
+  }));
+  return traducidos.join('\n');
+}
+
+function partirTexto(texto, max) {
+  if (texto.length <= max) return [texto];
+  const oraciones = texto.match(/[^.!?]+[.!?]*\s*/g) || [texto];
+  const trozos = [];
+  let actual = '';
+  for (const o of oraciones) {
+    if ((actual + o).length > max && actual) { trozos.push(actual.trim()); actual = ''; }
+    // Una oración más larga que el máximo se corta por palabras
+    if (o.length > max) {
+      for (const w of o.split(' ')) {
+        if ((actual + w).length > max && actual) { trozos.push(actual.trim()); actual = ''; }
+        actual += w + ' ';
+      }
+    } else actual += o;
+  }
+  if (actual.trim()) trozos.push(actual.trim());
+  return trozos;
+}
+
+async function traducirTrozo(texto, destLang, srcLang = 'es') {
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(texto)}&langpair=${srcLang}|${destLang}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = await res.json();
+  const out = json.responseData?.translatedText;
+  // Cuando se agota la cuota MyMemory responde 200 pero con un aviso como "traducción"
+  if (Number(json.responseStatus) !== 200 || !out || /MYMEMORY WARNING/i.test(out)) {
+    throw new Error(json.responseDetails || 'Traducción no disponible');
+  }
+  return out;
+}
+
+// rev = { origen, fields:[{id,label,rows?,translate?}], leer(id,lang), acciones:[{label,cls,run(vals)}] }
+let _revActual = null;
+
+function abrirRevision(rev, { auto = new Set(), fallos = new Set() } = {}) {
+  _revActual = rev;
+  let overlay = document.getElementById('modal-revision');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'modal-revision';
+    overlay.className = 'modal modal-revision';
+    document.body.appendChild(overlay);
   }
 
-  const btn = document.querySelector('[onclick="autoTraducirExp()"]');
-  btn.textContent = t('common-translating',currentLang);
-  btn.disabled = true;
-  document.getElementById("modal-exp-msg").textContent = "";
+  overlay.innerHTML = `
+    <div class="modal-box modal-rev">
+      <div class="modal-header">
+        <h3>${t('rev-title', currentLang)}</h3>
+        <button onclick="cerrarModal('modal-revision')">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="rev-desc">${t('rev-desc', currentLang)}</p>
+        <div class="rev-grid rev-head">
+          ${REV_LANGS.map(l => `<div class="rev-lang">${langMeta[l].flag} ${langMeta[l].label}${l === rev.origen ? ` <span class="rev-origen">${t('rev-source', currentLang)}</span>` : ''}</div>`).join('')}
+        </div>
+        ${rev.fields.map(f => `
+          <div class="rev-field">
+            <div class="rev-field-label">${f.label}${f.translate === false ? ` <span class="rev-manual">${t('rev-manual', currentLang)}</span>` : ''}</div>
+            <div class="rev-grid">
+              ${REV_LANGS.map(l => `
+                <div class="rev-cell" data-lang="${l}" ${l === rev.origen ? 'data-origen' : ''}>
+                  <span class="rev-cell-lang">${langMeta[l].flag} ${l.toUpperCase()}</span>
+                  ${f.rows
+                    ? `<textarea id="rv-${f.id}-${l}" rows="${f.rows}"></textarea>`
+                    : `<input id="rv-${f.id}-${l}" type="text">`}
+                  <div class="rev-note" id="rvn-${f.id}-${l}"></div>
+                </div>`).join('')}
+            </div>
+          </div>`).join('')}
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="cerrarModal('modal-revision')">${t('common-cancel', currentLang)}</button>
+          ${rev.acciones.map((a, i) => `<button class="${a.cls}" onclick="accionRevision(${i})">${a.label}</button>`).join('')}
+        </div>
+      </div>
+    </div>`;
 
+  // Valores por JS (no por template) para no tener que escapar comillas/HTML
+  rev.fields.forEach(f => REV_LANGS.forEach(l => {
+    const id = `${f.id}-${l}`;
+    const input = document.getElementById(`rv-${id}`);
+    input.value = rev.leer(f.id, l);
+    input.dataset.auto = auto.has(id) ? '1' : '';
+    input.dataset.fallo = fallos.has(id) ? '1' : '';
+    input.addEventListener('input', () => {
+      input.dataset.auto = '';
+      input.dataset.fallo = '';
+      marcarCeldas(f, rev.origen);
+    });
+  }));
+  rev.fields.forEach(f => marcarCeldas(f, rev.origen));
+
+  overlay.style.display = 'flex';
+}
+
+function marcarCeldas(f, origen) {
+  const src = document.getElementById(`rv-${f.id}-${origen}`).value.trim();
+  REV_LANGS.filter(l => l !== origen).forEach(l => {
+    const input = document.getElementById(`rv-${f.id}-${l}`);
+    const note  = document.getElementById(`rvn-${f.id}-${l}`);
+    const val   = input.value.trim();
+    let estado = '', texto = '';
+    if (input.dataset.fallo) { estado = 'warn'; texto = t('rev-failed', currentLang); }
+    else if (!val && src) { estado = 'empty'; texto = t('rev-empty', currentLang); }
+    // Mismo texto que el original en algo de más de una palabra: probablemente no se tradujo
+    else if (val && val === src && /\s/.test(val)) { estado = 'warn'; texto = t('rev-same', currentLang); }
+    else if (input.dataset.auto) { estado = 'auto'; texto = t('rev-auto', currentLang); }
+    input.closest('.rev-cell').dataset.estado = estado;
+    note.textContent = texto;
+  });
+}
+
+window.accionRevision = async function(i) {
+  const rev = _revActual;
+  const vals = {};
+  rev.fields.forEach(f => {
+    vals[f.id] = {};
+    REV_LANGS.forEach(l => { vals[f.id][l] = document.getElementById(`rv-${f.id}-${l}`).value; });
+  });
+  // Si la acción falla (ej: error al guardar) el panel queda abierto con lo revisado
   try {
-    const [nombreEn, nombreCa, descEn, descCa] = await Promise.all([
-      traducir(nombreEs, 'en'),
-      traducir(nombreEs, 'ca'),
-      traducir(descEs,   'en'),
-      traducir(descEs,   'ca'),
-    ]);
-
-    document.getElementById("e-nombre-en").value = nombreEn;
-    document.getElementById("e-nombre-ca").value = nombreCa;
-    document.getElementById("e-desc-en").value   = descEn;
-    document.getElementById("e-desc-ca").value   = descCa;
-
-    showToast(t('common-translated-toast',currentLang));
-  } catch(err) {
-    document.getElementById("modal-exp-msg").textContent = t('common-translate-error',currentLang);
-  } finally {
-    btn.textContent = t('common-auto-translate',currentLang);
-    btn.disabled = false;
+    await rev.acciones[i].run(vals);
+    cerrarModal('modal-revision');
+  } catch (e) {
+    showToast("❌ " + t('common-error', currentLang) + ": " + e.message);
   }
 };
 
@@ -574,7 +688,8 @@ window.abrirModalExp = function(e={}) {
           <button id="exp-tab-es" class="btn-tab active" onclick="expLang('es')">🇪🇸 Español</button>
           <button id="exp-tab-en" class="btn-tab"        onclick="expLang('en')">🇬🇧 English</button>
           <button id="exp-tab-ca" class="btn-tab"        onclick="expLang('ca')">🏴 Català</button>
-          <button class="btn-upload" onclick="autoTraducirExp()" style="margin-left:auto">${t('common-auto-translate',currentLang)}</button>
+          <button class="btn-upload" data-autotrad onclick="autoTraducirExp()" style="margin-left:auto">${t('common-auto-translate',currentLang)}</button>
+          <button class="btn-upload" onclick="revisarTraducciones('exp')">${t('rev-open',currentLang)}</button>
         </div>
 
         <div id="exp-fields-es">
@@ -674,15 +789,15 @@ async function renderBlog() {
     <div class="items-list">
       ${posts.length ? posts.map(p=>`
         <div class="item-row">
-          <img src="${p.imagen||'https://images.unsplash.com/photo-1488085061387-422e29b40080?w=100&q=60'}" class="item-thumb" alt="${mlVal(p.titulo,'es')}">
+          <img src="${p.imagen||'https://images.unsplash.com/photo-1488085061387-422e29b40080?w=100&q=60'}" class="item-thumb" alt="${mlVal(p.titulo,currentLang)}">
           <div class="item-info">
-            <strong>${mlVal(p.titulo,'es')}</strong>
+            <strong>${mlVal(p.titulo,currentLang)}</strong>
             <span>${p.categoria||''} · ${formatFecha(p.fecha)} · ${t('blog-by',currentLang)} ${p.autor||'—'}</span>
           </div>
           <div class="item-actions">
             <span class="badge-status ${p.publicado?'activo':'inactivo'}">${p.publicado?t('blog-published',currentLang):t('blog-draft',currentLang)}</span>
             <button class="btn-edit" onclick="editarPost('${p.id}')">✏️ ${t('common-edit',currentLang)}</button>
-            <button class="btn-del"  onclick="eliminarPost('${p.id}','${mlVal(p.titulo,'es').replace(/'/g,"\\'")}')">🗑</button>
+            <button class="btn-del"  onclick="eliminarPost('${p.id}','${mlVal(p.titulo,currentLang).replace(/'/g,"\\'")}')">🗑</button>
           </div>
         </div>`).join("") : `<div class="empty-state-admin">${t('blog-empty',currentLang)}</div>`}
     </div>
@@ -722,7 +837,8 @@ window.abrirModalPost = function(p={}) {
           <button id="post-tab-es" class="btn-tab active" onclick="postLang('es')">🇪🇸 Español</button>
           <button id="post-tab-en" class="btn-tab"        onclick="postLang('en')">🇬🇧 English</button>
           <button id="post-tab-ca" class="btn-tab"        onclick="postLang('ca')">🏴 Català</button>
-          <button class="btn-upload" onclick="autoTraducirPost()" style="margin-left:auto">${t('common-auto-translate',currentLang)}</button>
+          <button class="btn-upload" data-autotrad onclick="autoTraducirPost()" style="margin-left:auto">${t('common-auto-translate',currentLang)}</button>
+          <button class="btn-upload" onclick="revisarTraducciones('post')">${t('rev-open',currentLang)}</button>
         </div>
 
         <div id="post-fields-es">
@@ -914,12 +1030,13 @@ async function renderSettings() {
       </div>
       <div class="settings-card">
         <div class="settings-card-title">${translate('settings-colors')}</div>
-        <div class="cp-row"><label>${translate('settings-color-gold')}</label><input type="color" id="cp-gold"  value="${s.gold||'#b8924a'}" oninput="previewColor('--gold',this.value)"></div>
-        <div class="cp-row"><label>${translate('settings-color-bg')}</label>  <input type="color" id="cp-bg"    value="${s.bg||'#f5f0eb'}" oninput="previewColor('--bg',this.value)"></div>
-        <div class="cp-row"><label>${translate('settings-color-text')}</label> <input type="color" id="cp-text"  value="${s.text||'#3a3028'}" oninput="previewColor('--text',this.value)"></div>
-        <div class="cp-row"><label>${translate('settings-color-primary')}</label>    <input type="color" id="cp-pri"   value="${s.primary||'#2c2416'}" oninput="previewColor('--primary',this.value)"></div>
-        <div class="cp-row"><label>${translate('settings-color-card')}</label>     <input type="color" id="cp-card"  value="${s.cardBg||'#faf7f3'}" oninput="previewColor('--card-bg',this.value)"></div>
-        <button class="btn-secondary" onclick="resetColoresDefault()" style="margin-top:10px;font-size:13px;padding:7px 16px;">↺ Restaurar colores por defecto</button>
+        <div class="cp-row"><label>${translate('settings-color-gold')}</label><input type="color" id="cp-gold"  value="${s.gold||'#b8924a'}" oninput="previewColor()"></div>
+        <div class="cp-row"><label>${translate('settings-color-bg')}</label>  <input type="color" id="cp-bg"    value="${s.bg||'#f5f0eb'}" oninput="previewColor()"></div>
+        <div class="cp-row"><label>${translate('settings-color-text')}</label> <input type="color" id="cp-text"  value="${s.text||'#3a3028'}" oninput="previewColor()"></div>
+        <div class="cp-row"><label>${translate('settings-color-primary')}</label>    <input type="color" id="cp-pri"   value="${s.primary||'#2c2416'}" oninput="previewColor()"></div>
+        <div class="cp-row"><label>${translate('settings-color-card')}</label>     <input type="color" id="cp-card"  value="${s.cardBg||'#faf7f3'}" oninput="previewColor()"></div>
+        <button class="btn-secondary" onclick="resetColoresDefault()" style="margin-top:10px;font-size:13px;padding:7px 16px;">${translate('settings-reset-colors')}</button>
+        <div class="cp-hint">${translate('settings-colors-hint')}</div>
       </div>
       <div class="settings-card">
         <div class="settings-card-title">${translate('settings-lang')}</div>
@@ -968,7 +1085,6 @@ async function renderSettings() {
         <div>
           <button onclick="refreshPreview()" class="btn-preview">${translate('preview-refresh')}</button>
           <button onclick="togglePreview()" class="btn-close">${translate('preview-close')}</button>
-          <button onclick="showServerHelp()" style="background:#17a2b8; color:white; border:none; padding:6px 12px; border-radius:4px; font-size:12px; margin-left:8px; cursor:pointer;">❓ Ayuda servidor</button>
         </div>
       </div>
       <iframe id="preview-iframe" style="width:100%; height:600px; border:none; background:#f8f9fa;"></iframe>
@@ -980,15 +1096,45 @@ async function renderSettings() {
   }, 500);
 }
 
-window.previewColor = function(varName, val) { document.documentElement.style.setProperty(varName, val); };
+// Los colores se previsualizan en el iframe de la web (?preview=1), no en el
+// panel: el admin usa variables CSS con los mismos nombres y se "pintaba" él.
+function coloresDelFormulario() {
+  const map = { gold: "cp-gold", bg: "cp-bg", text: "cp-text", primary: "cp-pri", cardBg: "cp-card" };
+  const out = {};
+  Object.entries(map).forEach(([k, id]) => { const el = document.getElementById(id); if (el) out[k] = el.value; });
+  return out;
+}
+
+function enviarColoresPreview() {
+  const iframe = document.getElementById("preview-iframe");
+  if (!iframe || !iframe.contentWindow) return;
+  const isLocal = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+  iframe.contentWindow.postMessage(
+    { type: "lm-preview-colors", colors: coloresDelFormulario() },
+    new URL(isLocal ? WEB_URL_LOCAL : WEB_URL).origin
+  );
+}
+
+// Cuando la web del iframe termina de cargar pide los datos: mandarle los colores actuales
+window.addEventListener("message", e => {
+  const iframe = document.getElementById("preview-iframe");
+  if (iframe && e.source === iframe.contentWindow && e.data?.type === "lm-preview-ready") enviarColoresPreview();
+});
+
+window.previewColor = function() {
+  // Si la vista previa está cerrada, abrirla para que se vea el cambio
+  const container = document.getElementById("preview-container");
+  if (container && container.style.display === "none") togglePreview();
+  else enviarColoresPreview();
+};
 
 window.resetColoresDefault = function() {
   const defaults = { 'cp-gold': '#b8924a', 'cp-bg': '#f5f0eb', 'cp-text': '#3a3028', 'cp-pri': '#2c2416', 'cp-card': '#faf7f3' };
-  const varMap   = { 'cp-gold': '--gold',  'cp-bg': '--bg',    'cp-text': '--text',  'cp-pri': '--primary', 'cp-card': '--card-bg' };
   Object.entries(defaults).forEach(([id, val]) => {
     const el = document.getElementById(id);
-    if (el) { el.value = val; previewColor(varMap[id], val); }
+    if (el) el.value = val;
   });
+  previewColor();
 };
 
 window.guardarSettings = async function() {
@@ -1085,6 +1231,9 @@ function buildLangSwitchers() {
   `).join("");
 }
 window.switchLang = function(code) {
+  // En Contenido, cambiar de idioma re-renderiza el editor: avisar si hay cambios sin guardar
+  if (currentSection === "contenido" && typeof window._confirmarCambioIdiomaCMS === "function"
+      && !window._confirmarCambioIdiomaCMS(code)) return;
   currentLang = code;
   localStorage.setItem("lm_lang", code);
   buildLangSwitchers();
@@ -1093,7 +1242,7 @@ window.switchLang = function(code) {
   if (currentSection === "contenido" && typeof window._syncContenidoLang === "function") {
     window._syncContenidoLang(code);
   }
-  showToast(`🌐 Editando en ${langMeta[code].label}`);
+  showToast(tf('toast-editing-in', code, { lang: langMeta[code].label }));
 };
 
 // Aplicar traducciones al admin
@@ -1124,11 +1273,6 @@ function applyAdminTranslations(lang) {
 }
 
 // ─── Colores ──────────────────────────────────────────────
-function syncColorPickers(data) {
-  if(!data) return;
-  const map = { gold:"cp-gold", bg:"cp-bg", text:"cp-text", primary:"cp-pri", cardBg:"cp-card" };
-  Object.entries(map).forEach(([k,id])=>{ const el=document.getElementById(id); if(el&&data[k]) el.value=data[k]; });
-}
 
 // ─── Helpers ──────────────────────────────────────────────
 window.cerrarModal = function(id) { const el=document.getElementById(id); if(el) el.style.display="none"; };
@@ -1154,7 +1298,7 @@ function showToast(msg, autoHide=true) {
 // Secciones y campos definidos fuera de la función (no se recrean en cada render)
 const CONTENIDO_SECCIONES = [
   {
-    titulo: "🏠 Página de Inicio",
+    titulo: "🏠 Página de Inicio", tituloKey: "cms-sec-home", pagina: "index.html",
     campos: [
       { key: "hero-h1",       label: "Título principal del Hero",           tipo: "input"    },
       { key: "hero-sub",      label: "Subtítulo del Hero",                  tipo: "input"    },
@@ -1189,7 +1333,7 @@ const CONTENIDO_SECCIONES = [
     ]
   },
   {
-    titulo: "👥 Página Nosotros",
+    titulo: "👥 Página Nosotros", tituloKey: "cms-sec-about", pagina: "nosotros.html",
     campos: [
       { key: "nos-hero-h1",    label: "Hero — Título",                     tipo: "input"    },
       { key: "nos-hero-p",     label: "Hero — Subtítulo",                  tipo: "input"    },
@@ -1216,12 +1360,16 @@ const CONTENIDO_SECCIONES = [
       { key: "val4-titulo",    label: "Valor 4 — Título",                  tipo: "input"    },
       { key: "val4-texto",     label: "Valor 4 — Texto",                   tipo: "textarea" },
       { key: "equipo-titulo",  label: "Título sección Equipo",             tipo: "input"    },
+      { key: "e1-img",       label: "Miembro 1 — Foto",                 tipo: "foto"     },
       { key: "e1-nombre",      label: "Miembro 1 — Nombre",                tipo: "input"    },
       { key: "e1-rol",         label: "Miembro 1 — Rol",                   tipo: "input"    },
+      { key: "e2-img",       label: "Miembro 2 — Foto",                 tipo: "foto"     },
       { key: "e2-nombre",      label: "Miembro 2 — Nombre",                tipo: "input"    },
       { key: "e2-rol",         label: "Miembro 2 — Rol",                   tipo: "input"    },
+      { key: "e3-img",       label: "Miembro 3 — Foto",                 tipo: "foto"     },
       { key: "e3-nombre",      label: "Miembro 3 — Nombre",                tipo: "input"    },
       { key: "e3-rol",         label: "Miembro 3 — Rol",                   tipo: "input"    },
+      { key: "e4-img",       label: "Miembro 4 — Foto",                 tipo: "foto"     },
       { key: "e4-nombre",      label: "Miembro 4 — Nombre",                tipo: "input"    },
       { key: "e4-rol",         label: "Miembro 4 — Rol",                   tipo: "input"    },
       { key: "nos-cta-h",      label: "CTA — Título",                      tipo: "input"    },
@@ -1230,7 +1378,7 @@ const CONTENIDO_SECCIONES = [
     ]
   },
   {
-    titulo: "📬 Página Contacto",
+    titulo: "📬 Página Contacto", tituloKey: "cms-sec-contact", pagina: "contacto.html",
     campos: [
       { key: "contacto-h1",     label: "Hero — Título",                    tipo: "input"    },
       { key: "contacto-sub",    label: "Hero — Subtítulo",                 tipo: "input"    },
@@ -1242,7 +1390,7 @@ const CONTENIDO_SECCIONES = [
     ]
   },
   {
-    titulo: "🧭 Navegación",
+    titulo: "🧭 Navegación", tituloKey: "cms-sec-nav", pagina: "index.html",
     campos: [
       { key: "logo",    label: "Logo — texto",       tipo: "input" },
       { key: "nav1",    label: "Menú — Destinos",    tipo: "input" },
@@ -1261,32 +1409,57 @@ const LANG_META_CMS = {
   en: { flag: "🇬🇧", label: "English",  code: "en" },
 };
 
-// ── Traducción: LibreTranslate ─────────────────────────────
-async function translateBatch(keyValueObj, sourceLang, targetLang) {
-  const entries = Object.entries(keyValueObj).filter(([, v]) => v && v.trim());
-  if (!entries.length) return {};
-
-  try {
-    const results = {};
-    for (const [key, text] of entries) {
-      const r = await fetch("https://libretranslate.com/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ q: text, source: sourceLang === "ca" ? "es" : sourceLang, target: targetLang === "ca" ? "es" : targetLang, format: "text" })
-      });
-      const d = await r.json();
-      results[key] = d.translatedText || text;
-    }
-    return results;
-  } catch (err) {
-    console.error("LibreTranslate failed:", err);
-    return {};
-  }
-}
-
 // ── Estado centralizado del contenido (un solo listener) ──
 let _remotoCMS = {};
 let _cmsListenerActive = false;
+
+// ── Fotos del sitio (site/images): una por clave, la nueva reemplaza a la vieja ──
+let _imagenesSitio = {};
+let _imgListenerActive = false;
+
+function fotoSitioUrl(key) {
+  return _imagenesSitio[key] || WEB_DEFAULT_IMAGES[key] || "";
+}
+
+function fotoCampoHTML(key) {
+  return `
+    <div class="foto-sitio">
+      <img id="foto-${key}" src="${fotoSitioUrl(key)}" alt="">
+      <div class="foto-sitio-acciones">
+        <input type="file" id="file-${key}" accept="image/*" style="display:none" onchange="window._subirFotoSitio('${key}', this)">
+        <button type="button" class="btn-upload" id="btn-foto-${key}" onclick="document.getElementById('file-${key}').click()">${t('cms-photo-change', currentLang)}</button>
+        <span class="foto-sitio-hint">${t('cms-photo-hint', currentLang)}</span>
+      </div>
+    </div>`;
+}
+
+window._subirFotoSitio = async function(key, input) {
+  const file = input.files && input.files[0];
+  input.value = "";  // permite volver a elegir el mismo archivo
+  if (!file) return;
+  if (!file.type.startsWith("image/")) { showToast(t('msg-invalid-image', currentLang)); return; }
+  if (file.size > 5 * 1024 * 1024) { showToast(t('msg-image-too-big', currentLang) + " 5MB"); return; }
+
+  const btn = document.getElementById(`btn-foto-${key}`);
+  btn.disabled = true;
+  btn.textContent = t('cms-photo-uploading', currentLang);
+  try {
+    const { url, publicId } = await uploadImageConId(file);
+    // Cuadrada y centrada en la cara, igual para todo el equipo
+    const urlFinal = url.replace("/upload/", "/upload/c_fill,g_face,w_400,h_400,q_auto,f_auto/");
+    await replaceSiteImage(key, urlFinal, publicId);
+    _imagenesSitio[key] = urlFinal;
+    const img = document.getElementById(`foto-${key}`);
+    if (img) img.src = urlFinal;
+    showToast(t('cms-photo-updated', currentLang));
+  } catch (e) {
+    showToast("❌ " + t('common-error', currentLang) + ": " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t('cms-photo-change', currentLang);
+  }
+};
+
 
 async function renderContenido() {
   // FIX 1: usar currentLang global del topbar como punto de partida
@@ -1294,14 +1467,14 @@ async function renderContenido() {
 
   document.getElementById("section-content").innerHTML = `
     <div class="sec-header">
-      <h2>Contenido del Sitio</h2>
+      <h2>${t('cms-title', currentLang)}</h2>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <span style="font-size:13px;color:#888">Editando en:</span>
+        <span style="font-size:13px;color:#888">${t('cms-editing-in', currentLang)}</span>
         <div id="lang-tabs-contenido" style="display:flex;gap:6px;"></div>
       </div>
     </div>
     <div id="contenido-editor">
-      <div class="loading"><div class="spinner"></div>Cargando contenido...</div>
+      <div class="loading"><div class="spinner"></div>${t('cms-loading', currentLang)}</div>
     </div>`;
 
   // FIX 2: listener único — no re-registrar si ya está activo
@@ -1314,6 +1487,18 @@ async function renderContenido() {
   } else {
     // Ya hay listener activo, renderizar con datos en memoria
     _renderEditorContenido();
+  }
+
+  // Fotos: solo se actualizan las miniaturas, sin re-renderizar (no pisa textos sin guardar)
+  if (!_imgListenerActive) {
+    _imgListenerActive = true;
+    listenImages(data => {
+      _imagenesSitio = data || {};
+      Object.keys(WEB_DEFAULT_IMAGES).forEach(key => {
+        const img = document.getElementById("foto-" + key);
+        if (img) img.src = fotoSitioUrl(key);
+      });
+    });
   }
 
   // FIX 3: sincronización con switcher del topbar
@@ -1333,7 +1518,20 @@ async function renderContenido() {
   }
 
   // FIX 4: exponer en window para que el onclick del botón lo encuentre
+  window._contenidoTieneCambios = function() {
+    if (!document.getElementById("contenido-editor")) return false;
+    const actuales = _collectFields();
+    return Object.keys(actuales).some(k => actuales[k] !== valLang(editLang, k));
+  };
+
+  function confirmarCambioIdioma(code) {
+    if (code === editLang || !window._contenidoTieneCambios()) return true;
+    return confirm(tf('cms-unsaved-confirm', currentLang, { lang: LANG_META_CMS[editLang].label }));
+  }
+  window._confirmarCambioIdiomaCMS = confirmarCambioIdioma;
+
   window._switchEditLang = function(code) {
+    if (!confirmarCambioIdioma(code)) return;
     editLang = code;
     // Sincronizar también el switcher del topbar
     currentLang = code;
@@ -1342,8 +1540,9 @@ async function renderContenido() {
     _renderEditorContenido();
   };
 
+  // Lo guardado en Firestore; si está vacío, el texto que hoy muestra la web
   function val(key) {
-    return (_remotoCMS[editLang] || {})[key] || "";
+    return (_remotoCMS[editLang] || {})[key] || WEB_DEFAULTS[editLang]?.[key] || "";
   }
 
   function _renderEditorContenido() {
@@ -1362,16 +1561,20 @@ async function renderContenido() {
           box-shadow:0 4px 20px rgba(0,0,0,.15);
         ">
           <div style="flex:1;min-width:200px;">
-            <div style="color:#e2c97e;font-weight:700;font-size:14px;margin-bottom:3px;">✨ Auto-traducción con IA</div>
+            <div style="color:#e2c97e;font-weight:700;font-size:14px;margin-bottom:3px;">${t('cms-tr-title',currentLang)}</div>
             <div style="color:#8892b0;font-size:12px;">
-              Guardá en <strong style="color:#ccd6f6">${LANG_META_CMS[editLang].flag} ${LANG_META_CMS[editLang].label}</strong>
-              y traducí automáticamente a los otros 2 idiomas
+              ${tf('cms-tr-desc',currentLang,{lang:`<strong style="color:#ccd6f6">${LANG_META_CMS[editLang].flag} ${LANG_META_CMS[editLang].label}</strong>`})}
             </div>
           </div>
           <button id="btn-traducir-ia" onclick="window._traducirConIA()"
             style="background:linear-gradient(135deg,#e2c97e,#c9a227);color:#1a1a2e;border:none;
             border-radius:8px;padding:10px 20px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;">
-            🌐 Traducir a los otros idiomas
+            ${t('cms-tr-btn',currentLang)}
+          </button>
+          <button onclick="window._revisarContenido()"
+            style="background:transparent;color:#e2c97e;border:1px solid #e2c97e;
+            border-radius:8px;padding:10px 16px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;">
+            ${t('rev-open',currentLang)}
           </button>
           <div id="traduccion-status" style="font-size:12px;color:#8892b0;min-width:160px;"></div>
         </div>
@@ -1379,12 +1582,12 @@ async function renderContenido() {
         <!-- Campos por sección -->
         ${CONTENIDO_SECCIONES.map(sec => `
           <div class="contenido-sec">
-            <div class="contenido-sec-title">${sec.titulo}</div>
+            <div class="contenido-sec-title">${t(sec.tituloKey, currentLang)}</div>
             <div class="contenido-campos">
               ${sec.campos.map(c => `
                 <div class="form-field">
                   <label>${c.label}</label>
-                  ${c.tipo === "textarea"
+                  ${c.tipo === "foto" ? fotoCampoHTML(c.key) : c.tipo === "textarea"
                     ? `<textarea id="cf-${c.key}" rows="2">${val(c.key)}</textarea>`
                     : `<input id="cf-${c.key}" type="text" value="${(val(c.key)||'').replace(/"/g,'&quot;')}">`
                   }
@@ -1396,9 +1599,12 @@ async function renderContenido() {
         <div style="position:sticky;bottom:0;background:var(--bg,#f5f0eb);padding:16px 0;
           border-top:1px solid var(--border,#e0d9d0);display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
           <button class="btn-primary" onclick="window._guardarContenidoCMS()" style="padding:13px 28px;font-size:14px;">
-            💾 Guardar (${LANG_META_CMS[editLang].flag} ${LANG_META_CMS[editLang].label})
+            ${tf('cms-save', currentLang, { lang: `${LANG_META_CMS[editLang].flag} ${LANG_META_CMS[editLang].label}` })}
           </button>
-          <span style="font-size:12px;color:#aaa">Los cambios se aplican al sitio en tiempo real</span>
+          <button class="btn-secondary" onclick="window._previewContenido()" style="padding:13px 22px;font-size:14px;">
+            ${t('cms-preview', currentLang)}
+          </button>
+          <span style="font-size:12px;color:#aaa">${t('cms-save-hint', currentLang)}</span>
         </div>
         <div id="contenido-msg" style="font-size:13px;"></div>
       </div>`;
@@ -1421,75 +1627,173 @@ async function renderContenido() {
       await saveContent(updated);
       _remotoCMS = updated;
       const msg = document.getElementById("contenido-msg");
-      if (msg) msg.textContent = `✅ Guardado en ${LANG_META_CMS[editLang].label}`;
-      showToast(`✅ Guardado (${LANG_META_CMS[editLang].flag} ${LANG_META_CMS[editLang].label})`);
+      if (msg) msg.textContent = tf('cms-saved', currentLang, { lang: LANG_META_CMS[editLang].label });
+      showToast(tf('cms-saved', currentLang, { lang: `${LANG_META_CMS[editLang].flag} ${LANG_META_CMS[editLang].label}` }));
       setTimeout(() => { const m = document.getElementById("contenido-msg"); if(m) m.textContent=""; }, 3000);
     } catch(e) {
       const msg = document.getElementById("contenido-msg");
-      if (msg) msg.textContent = "❌ Error: " + e.message;
+      if (msg) msg.textContent = "❌ " + t('common-error', currentLang) + ": " + e.message;
     }
   };
 
-  // ── Traducir con IA ─────────────────────────────────────
+  // ── Vista previa sin guardar ────────────────────────────
+  // Abre la página de la web en un iframe (?preview=1) y le manda por
+  // postMessage los textos del editor. La web solo los muestra, no guarda nada.
+  let _previewPagina = "index.html";
+
+  function webBaseUrl() {
+    const isLocal = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+    return (isLocal ? WEB_URL_LOCAL : WEB_URL).replace(/\/+$/, "");
+  }
+
+  function enviarPreview() {
+    const iframe = document.getElementById("cms-preview-iframe");
+    if (!iframe || !iframe.contentWindow) return;
+    iframe.contentWindow.postMessage(
+      { type: "lm-preview", lang: editLang, texts: _collectFields() },
+      new URL(webBaseUrl()).origin
+    );
+  }
+
+  // Un solo listener global; apunta siempre al editor abierto más reciente
+  window._enviarPreviewCMS = enviarPreview;
+  if (!window._previewListenerCMS) {
+    window._previewListenerCMS = true;
+    window.addEventListener("message", e => {
+      const iframe = document.getElementById("cms-preview-iframe");
+      if (iframe && e.source === iframe.contentWindow && e.data?.type === "lm-preview-ready") window._enviarPreviewCMS();
+    });
+  }
+
+  window._previewPaginaCMS = function(pagina) {
+    _previewPagina = pagina;
+    document.querySelectorAll("#modal-cms-preview .btn-tab").forEach(b =>
+      b.classList.toggle("active", b.dataset.pagina === pagina));
+    document.getElementById("cms-preview-iframe").src = `${webBaseUrl()}/${pagina}?preview=1`;
+  };
+
+  window._previewContenido = function() {
+    // Abrir la página de la sección que se está editando
+    const activo = document.activeElement?.closest?.(".contenido-sec");
+    const idx = activo ? [...document.querySelectorAll(".contenido-sec")].indexOf(activo) : -1;
+    if (idx >= 0) _previewPagina = CONTENIDO_SECCIONES[idx].pagina;
+
+    let modal = document.getElementById("modal-cms-preview");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "modal-cms-preview";
+      modal.className = "modal";
+      document.body.appendChild(modal);
+    }
+    const paginas = [["index.html", "cms-page-home"], ["nosotros.html", "cms-page-about"], ["contacto.html", "cms-page-contact"]];
+    modal.innerHTML = `
+      <div class="modal-box modal-preview-cms">
+        <div class="modal-header">
+          <h3>${tf('cms-preview-title', currentLang, { lang: `${LANG_META_CMS[editLang].flag} ${LANG_META_CMS[editLang].label}` })}</h3>
+          <button onclick="cerrarModal('modal-cms-preview')">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="cms-preview-bar">
+            ${paginas.map(([p, key]) => `<button class="btn-tab" data-pagina="${p}" onclick="window._previewPaginaCMS('${p}')">${t(key, currentLang)}</button>`).join("")}
+            <span class="cms-preview-note">${t('cms-preview-note', currentLang)}</span>
+          </div>
+          <iframe id="cms-preview-iframe" title="Vista previa"></iframe>
+        </div>
+      </div>`;
+    modal.style.display = "flex";
+    window._previewPaginaCMS(_previewPagina);
+  };
+
+  // ── Traducir con revisión ───────────────────────────────
+  // Texto de un idioma: lo guardado o, si está vacío, lo que hoy muestra la web
+  function valLang(lang, key) {
+    return (_remotoCMS[lang] || {})[key] || WEB_DEFAULTS[lang]?.[key] || "";
+  }
+
+  const CMS_CAMPOS = CONTENIDO_SECCIONES.flatMap(sec => sec.campos
+    .filter(c => c.tipo !== "foto")
+    .map(c => ({ ...c, seccion: t(sec.tituloKey, currentLang) })));
+
+  // `actuales` = lo que hay en el editor del idioma activo (con cambios sin guardar)
+  function revisionContenido(keys, actuales, traducidos = {}) {
+    return {
+      origen: editLang,
+      fields: CMS_CAMPOS.filter(c => keys.includes(c.key)).map(c => ({
+        id: `cms-${c.key}`,
+        label: `${c.seccion} · ${c.label}`,
+        rows: c.tipo === "textarea" ? 3 : 0,
+      })),
+      leer: (id, l) => {
+        const key = id.slice(4);
+        if (l === editLang) return actuales[key];
+        return traducidos[key]?.[l] ?? valLang(l, key);
+      },
+      acciones: [{
+        label: t('rev-save-all', currentLang), cls: 'btn-primary',
+        run: async vals => {
+          const updated = { ..._remotoCMS };
+          REV_LANGS.forEach(l => { updated[l] = { ...(_remotoCMS[l] || {}) }; });
+          // También los demás campos editados en el idioma activo, como hace "Guardar"
+          Object.assign(updated[editLang], actuales);
+          Object.entries(vals).forEach(([id, porLang]) =>
+            REV_LANGS.forEach(l => { updated[l][id.slice(4)] = porLang[l]; }));
+          await saveContent(updated);
+          _remotoCMS = updated;
+          _renderEditorContenido();
+          showToast(t('cms-saved-all', currentLang));
+        },
+      }],
+    };
+  }
+
+  window._revisarContenido = function() {
+    abrirRevision(revisionContenido(CMS_CAMPOS.map(c => c.key), _collectFields()));
+  };
+
+  // Traduce solo los campos cambiados en el idioma activo; el resto ya tiene
+  // su versión en cada idioma (así no se gasta la cuota diaria de MyMemory).
   window._traducirConIA = async function() {
     const btn    = document.getElementById("btn-traducir-ia");
     const status = document.getElementById("traduccion-status");
     if (!btn || !status) return;
 
-    // 1. Guardar idioma actual primero
-    const currentData = _collectFields();
-    btn.disabled = true; btn.textContent = "⏳ Guardando...";
-
-    try {
-      const saved = { ..._remotoCMS, [editLang]: { ...(_remotoCMS[editLang]||{}), ...currentData } };
-      await saveContent(saved);
-      _remotoCMS = saved;
-    } catch(e) {
-      status.style.color = "#e74c3c";
-      status.textContent = "❌ Error al guardar";
-      btn.disabled = false; btn.textContent = "🌐 Traducir a los otros idiomas";
+    const actuales  = _collectFields();
+    const cambiados = Object.keys(actuales).filter(k => actuales[k].trim() && actuales[k] !== valLang(editLang, k));
+    if (!cambiados.length) {
+      status.style.color = "#e2c97e";
+      status.textContent = tf('cms-tr-none', currentLang, { lang: LANG_META_CMS[editLang].label });
       return;
     }
 
-    // 2. Traducir a los otros 2 idiomas
-    const otherLangs = Object.keys(LANG_META_CMS).filter(l => l !== editLang);
-    let finalContent = { ..._remotoCMS };
-    let allOk = true;
+    btn.disabled = true;
+    btn.textContent = t('common-translating', currentLang);
+    status.textContent = "";
 
-    for (const targetLang of otherLangs) {
-      btn.textContent = `⏳ Traduciendo a ${LANG_META_CMS[targetLang].label}...`;
-      status.style.color = "#8892b0";
-      status.textContent = `Procesando ${Object.keys(currentData).length} campos...`;
+    const otros = REV_LANGS.filter(l => l !== editLang);
+    const auto = new Set(), fallos = new Set(), traducidos = {};
+    await Promise.all(cambiados.flatMap(key => otros.map(async l => {
+      const texto = actuales[key];
+      traducidos[key] = traducidos[key] || {};
+      // Números y similares ("+500", "98%") se copian tal cual
+      if (!/\p{L}/u.test(texto)) { traducidos[key][l] = texto; return; }
       try {
-        const translated = await translateBatch(currentData, editLang, targetLang);
-        if (!Object.keys(translated).length) throw new Error("Sin resultados");
-        finalContent[targetLang] = { ...(_remotoCMS[targetLang]||{}), ...translated };
-        status.textContent = `✅ ${LANG_META_CMS[targetLang].flag} listo`;
-      } catch(err) {
-        allOk = false;
-        status.style.color = "#e74c3c";
-        status.textContent = `⚠️ Error en ${LANG_META_CMS[targetLang].label}`;
-        console.error(err);
+        // Los <br> de la web viajan como saltos de línea para que el traductor no los rompa
+        const out = await traducir(texto.replace(/<br\s*\/?>/gi, "\n"), l, editLang);
+        traducidos[key][l] = out.replace(/\n/g, "<br>");
+        auto.add(`cms-${key}-${l}`);
+      } catch (e) {
+        fallos.add(`cms-${key}-${l}`);
       }
-    }
+    })));
 
-    // 3. Guardar todo
-    try {
-      await saveContent(finalContent);
-      _remotoCMS = finalContent;
-      if (allOk) {
-        showToast("🌐 Traducción completa — ES, CA y EN actualizados");
-        status.style.color = "#27ae60";
-        status.textContent = "✅ Todos los idiomas actualizados";
-      } else {
-        showToast("⚠️ Traducción parcial — revisá la consola");
-      }
-    } catch(e) {
+    btn.disabled = false;
+    btn.textContent = t('cms-tr-btn', currentLang);
+    if (fallos.size) {
       status.style.color = "#e74c3c";
-      status.textContent = "❌ Error guardando: " + e.message;
+      status.textContent = t('rev-some-failed', currentLang);
     }
 
-    btn.disabled = false; btn.textContent = "🌐 Traducir a los otros idiomas";
+    abrirRevision(revisionContenido(cambiados, actuales, traducidos), { auto, fallos });
   };
 
   // Primer render con datos actuales
@@ -1608,8 +1912,8 @@ window.loadCurrentWebsite = function() {
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const previewUrl = isLocal ? WEB_URL_LOCAL : WEB_URL;
 
-    // Cargar la página sin timestamp para mostrar el estado actual
-    iframe.src = previewUrl;
+    // ?preview=1: la web acepta colores sin guardar enviados desde acá
+    iframe.src = `${previewUrl.replace(/\/+$/, "")}/?preview=1`;
 
     // Mostrar mensaje de carga
     showToast(t('msg-preview-loading', currentLang));
@@ -1636,8 +1940,7 @@ window.refreshPreview = function() {
     setTimeout(() => {
       // Agregar timestamp para forzar recarga completa
       const timestamp = Date.now();
-      const separator = previewUrl.includes('?') ? '&' : '?';
-      iframe.src = `${previewUrl}${separator}_refresh=${timestamp}&_nocache=${Math.random()}`;
+      iframe.src = `${previewUrl.replace(/\/+$/, "")}/?preview=1&_refresh=${timestamp}&_nocache=${Math.random()}`;
     }, 100);
 
     showToast(t('msg-preview-updating', currentLang));
@@ -1649,35 +1952,4 @@ window.refreshPreview = function() {
       };
     }
   }
-};
-
-// Función para mostrar ayuda del servidor
-window.showServerHelp = function() {
-  const helpText = `
-🌐 CONFIGURACIÓN DEL SERVIDOR LOCAL
-
-Para que funcione la vista previa necesitas levantar un servidor local:
-
-📋 INSTRUCCIONES RÁPIDAS:
-
-1️⃣ Abre la terminal/cmd
-2️⃣ Navega al directorio:
-   cd /c/Users/Ususario/OneDrive/Documentos/proyectos/la-maleta-web
-
-3️⃣ Levanta servidor con Python:
-   python -m http.server 5173
-
-4️⃣ Verifica que funcione:
-   Abre: http://localhost:5173
-
-📝 Opciones alternativas:
-• live-server --port=5173 (con Node.js)
-• php -S localhost:5173 (con PHP)
-
-Una vez que tengas el servidor corriendo, haz clic en "🔄 Actualizar" para ver la vista previa.
-
-ℹ️ El archivo SERVER-SETUP.md tiene instrucciones completas.
-  `;
-
-  alert(helpText);
 };

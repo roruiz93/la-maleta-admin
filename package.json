@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sync:web-texts": "node scripts/sync-web-texts.mjs"
   },
   "dependencies": {
     "dotenv": "^17.3.1",

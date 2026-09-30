@@ -16,7 +16,8 @@ import {
   deleteDoc,
   onSnapshot,
   query,
-  where
+  where,
+  arrayUnion
 } from "firebase/firestore";
 import { firebaseConfig } from "./firebase-config";
 
@@ -34,6 +35,14 @@ const CLOUD_NAME = "dkfjglodj";
 const UPLOAD_PRESET = "la-maleta-admin"; // tu preset
 
 export async function uploadImage(file) {
+  const { url } = await uploadImageConId(file);
+  // optimización automática
+  return url.replace("/upload/", "/upload/w_800,q_auto/");
+}
+
+// Igual que uploadImage pero devuelve también el public_id de Cloudinary
+// (necesario para poder borrar la imagen después)
+export async function uploadImageConId(file) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", UPLOAD_PRESET);
@@ -47,9 +56,8 @@ export async function uploadImage(file) {
   );
 
   const data = await res.json();
-
-  // optimización automática
-  return data.secure_url.replace("/upload/", "/upload/w_800,q_auto/");
+  if (!res.ok || !data.secure_url) throw new Error(data.error?.message || "No se pudo subir la imagen");
+  return { url: data.secure_url, publicId: data.public_id };
 }
 
 // ─────────────────────────────
@@ -172,6 +180,23 @@ export async function saveImageUrl(imageId, file) {
   });
 
   return url;
+}
+
+// Una sola imagen por clave (ej: "e1-img"): la nueva reemplaza a la anterior.
+// Devuelve el public_id de la anterior para poder borrarla de Cloudinary.
+export async function replaceSiteImage(imageId, url, publicId) {
+  const ref = doc(db, "site", "images");
+  const snap = await getDoc(ref);
+  const anterior = snap.exists() ? (snap.data().publicIds || {})[imageId] : null;
+  await setDoc(ref, {
+    [imageId]: url,
+    publicIds: { [imageId]: publicId },
+    // Borrar en Cloudinary requiere la API secret (servidor): mientras tanto
+    // se anotan las reemplazadas para poder limpiarlas después.
+    ...(anterior && anterior !== publicId ? { pendientesBorrar: arrayUnion(anterior) } : {}),
+    updatedAt: new Date().toISOString()
+  }, { merge: true });
+  return anterior || null;
 }
 
 export async function loadImages() {
