@@ -20,7 +20,7 @@ import {
   where,
   arrayUnion
 } from "firebase/firestore";
-import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 import { firebaseConfig } from "./firebase-config";
 
 // ─────────────────────────────
@@ -29,11 +29,12 @@ import { firebaseConfig } from "./firebase-config";
 export const app = initializeApp(firebaseConfig);
 
 // App Check: cada pedido a Firebase (incluido Gemini / AI Logic) lleva un token
-// que prueba que viene de este admin. La clave de sitio de reCAPTCHA v3 es
-// pública; los dominios permitidos se configuran en la consola de reCAPTCHA.
-const RECAPTCHA_V3_SITE_KEY = "6LfEb9ctAAAAACnfZK1QBZQ7dqUyLTfYlqpFB5Km";
+// que prueba que viene de este admin. Usa reCAPTCHA Enterprise (la v3 clásica
+// está obsoleta). La clave de sitio es pública; los dominios permitidos se
+// configuran en Google Cloud → Seguridad → reCAPTCHA.
+const RECAPTCHA_ENTERPRISE_SITE_KEY = "6LcXD9ctAAAAAEAQ5e79vfGppv68wRn_9qvpQ2kn";
 export const appCheck = initializeAppCheck(app, {
-  provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
+  provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_ENTERPRISE_SITE_KEY),
   isTokenAutoRefreshEnabled: true,
 });
 export const auth = getAuth(app);
