@@ -1204,6 +1204,16 @@ async function renderSettings() {
         </div>
       </div>
       <div class="settings-card">
+        <div class="settings-card-title">${translate('settings-social')}</div>
+        <div class="form-field"><label>${translate('settings-instagram')}</label>
+          <input id="s-instagram" value="${esc(s.instagram||'')}" placeholder="https://www.instagram.com/viajeslamaleta">
+        </div>
+        <div class="form-field"><label>${translate('settings-facebook')}</label>
+          <input id="s-facebook" value="${esc(s.facebook||'')}" placeholder="https://www.facebook.com/viajeslamaleta">
+          <span class="field-hint">${translate('settings-social-hint')}</span>
+        </div>
+      </div>
+      <div class="settings-card">
         <div class="settings-card-title">${translate('settings-contact')}</div>
         <div class="form-field"><label>${translate('settings-phone')}</label><input id="s-tel" value="${s.tel||''}" placeholder="+34 606 715 917"></div>
         <div class="form-field"><label>${translate('settings-email')}</label><input id="s-email" value="${s.email||''}" placeholder="info@lamaleta.com"></div>
@@ -1365,9 +1375,39 @@ function normalizarWhatsapp(raw) {
   return d;
 }
 
+// Instagram/Facebook: acepta el enlace del perfil o solo el usuario (@usuario).
+// Devuelve "" si está vacío y null si no es un enlace válido de esa red.
+const REDES_DOMINIO = { instagram: "instagram.com", facebook: "facebook.com" };
+function normalizarRed(red, raw) {
+  let v = String(raw || "").trim();
+  if (!v) return "";
+  const dominio = REDES_DOMINIO[red];
+  if (/^[@\w.-]+$/.test(v) && !v.includes(dominio)) return `https://www.${dominio}/${v.replace(/^@/, "")}`;
+  if (!/^https?:\/\//i.test(v)) v = "https://" + v;
+  try {
+    const u = new URL(v);
+    const host = u.hostname.toLowerCase().replace(/^(www|m|web)\./, "");
+    if (host !== dominio || u.pathname.length < 2) return null;
+    // En Instagram lo que sigue al "?" es seguimiento (igsh); Facebook lo usa en profile.php?id=
+    return `https://www.${dominio}${u.pathname}${red === "facebook" ? u.search : ""}`;
+  } catch (e) { return null; }
+}
+
 window.guardarSettings = async function() {
   const currentSettings = await getSettings();
+  const redes = {};
+  for (const red of Object.keys(REDES_DOMINIO)) {
+    redes[red] = normalizarRed(red, document.getElementById("s-" + red).value);
+    if (redes[red] === null) {
+      const msg = t('settings-social-invalid', currentLang).replace('{red}', red === 'instagram' ? 'Instagram' : 'Facebook');
+      document.getElementById("settings-msg").textContent = "❌ " + msg;
+      showToast(msg);
+      return;
+    }
+  }
   const data = {
+    instagram:   redes.instagram,
+    facebook:    redes.facebook,
     whatsapp:    normalizarWhatsapp(document.getElementById("s-wa").value),
     whatsappMsg: document.getElementById("s-wa-msg").value.trim(),
     tel:         document.getElementById("s-tel").value.trim(),
