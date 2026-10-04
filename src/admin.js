@@ -1670,8 +1670,7 @@ const CONTENIDO_SECCIONES = [
       { key: "nav2",    label: "Menú — Experiencias",tipo: "input" },
       { key: "nav3",    label: "Menú — Nosotros",    tipo: "input" },
       { key: "nav4",    label: "Menú — Blog",        tipo: "input" },
-      { key: "nav5",    label: "Menú — Contacto",    tipo: "input" },
-      { key: "nav-cta", label: "Menú — Botón CTA",   tipo: "input" },
+      { key: "nav5",    label: "Menú — Botón Contacto", tipo: "input" },
     ]
   }
 ];
