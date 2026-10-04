@@ -29,6 +29,9 @@ function esc(v) {
   return String(v ?? "").replace(/[&<>"']/g, ch =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
 }
+// Argumento para un onclick="fn(...)": literal JS válido (JSON) y escapado para
+// el atributo HTML (el navegador lo des-escapa antes de ejecutar el JS).
+const jsArg = v => esc(JSON.stringify(String(v ?? "")));
 const mailtoHref = email => "mailto:" + encodeURIComponent(String(email || "").trim());
 const telHref    = tel => "tel:" + String(tel || "").replace(/[^\d+]/g, "");
 
@@ -203,15 +206,15 @@ async function renderDestinos() {
     <div class="items-list">
       ${items.length ? items.map(d=>`
         <div class="item-row">
-          <img src="${d.imagen||'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=100&q=60'}" class="item-thumb" alt="${mlVal(d.nombre,currentLang)}">
+          <img src="${esc(d.imagen||'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=100&q=60')}" class="item-thumb" alt="${esc(mlVal(d.nombre,currentLang))}">
           <div class="item-info">
-            <strong>${mlVal(d.nombre,currentLang)}</strong>
+            <strong>${esc(mlVal(d.nombre,currentLang))}</strong>
             <span>${esc(mlVal(d.categoria,currentLang))} · ${esc(mlVal(d.duracion,currentLang))} · ${Number(d.precio) > 0 ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(d.precio) : '—'}</span>
           </div>
           <div class="item-actions">
             <span class="badge-status ${d.activo!==false?'activo':'inactivo'}">${d.activo!==false?t('common-active',currentLang):t('common-hidden',currentLang)}</span>
-            <button class="btn-edit" onclick="editarDestino('${d.id}')">✏️ ${t('common-edit',currentLang)}</button>
-            <button class="btn-del"  onclick="eliminarDestino('${d.id}','${mlVal(d.nombre,currentLang).replace(/'/g,"\\'")}')">🗑</button>
+            <button class="btn-edit" onclick="editarDestino(${jsArg(d.id)})">✏️ ${t('common-edit',currentLang)}</button>
+            <button class="btn-del"  onclick="eliminarDestino(${jsArg(d.id)}, ${jsArg(mlVal(d.nombre,currentLang))})">🗑</button>
           </div>
         </div>`).join("") : `<div class="empty-state-admin">${t('destinos-empty',currentLang)}</div>`}
     </div>
@@ -241,7 +244,7 @@ window.abrirModalDestino = function(d={}) {
       </div>
       <div class="modal-body">
         <div class="form-row-admin">
-          <div class="form-field"><label>${t('destinos-price',currentLang)}</label><input id="d-precio" type="number" value="${d.precio||''}" placeholder="1200"></div>
+          <div class="form-field"><label>${t('destinos-price',currentLang)}</label><input id="d-precio" type="number" value="${esc(d.precio||'')}" placeholder="1200"></div>
         </div>
 
         <div style="display:flex;gap:6px;margin:14px 0 10px;align-items:center;flex-wrap:wrap;">
@@ -253,25 +256,25 @@ window.abrirModalDestino = function(d={}) {
         </div>
 
         <div id="dest-fields-es">
-          <div class="form-field"><label>Nombre * (ES)</label><input id="d-nombre-es" value="${nombreEs}" placeholder="Ej: Noruega"></div>
-          <div class="form-field"><label>Descripción corta (ES)</label><input id="d-descCorta-es" value="${cortaEs}" placeholder="Breve descripción para la tarjeta"></div>
-          <div class="form-field"><label>Descripción completa (ES)</label><textarea id="d-desc-es" rows="4">${descEs}</textarea></div>
+          <div class="form-field"><label>Nombre * (ES)</label><input id="d-nombre-es" value="${esc(nombreEs)}" placeholder="Ej: Noruega"></div>
+          <div class="form-field"><label>Descripción corta (ES)</label><input id="d-descCorta-es" value="${esc(cortaEs)}" placeholder="Breve descripción para la tarjeta"></div>
+          <div class="form-field"><label>Descripción completa (ES)</label><textarea id="d-desc-es" rows="4">${esc(descEs)}</textarea></div>
           <div class="form-field"><label>${t('common-category',currentLang)} (ES)</label><input id="d-cat-es" value="${esc(cat.es)}"></div>
           <div class="form-field"><label>${t('destinos-duration',currentLang)} (ES)</label><input id="d-dur-es" value="${esc(dur.es)}"></div>
           <div class="form-field"><label>${t('destinos-includes-label',currentLang)} (ES)</label><textarea id="d-incluye-es" rows="4">${esc(inc.es)}</textarea></div>
         </div>
         <div id="dest-fields-en" style="display:none">
-          <div class="form-field"><label>Name (EN)</label><input id="d-nombre-en" value="${nombreEn}" placeholder="E.g.: Norway"></div>
-          <div class="form-field"><label>Short description (EN)</label><input id="d-descCorta-en" value="${cortaEn}" placeholder="Brief description for the card"></div>
-          <div class="form-field"><label>Full description (EN)</label><textarea id="d-desc-en" rows="4">${descEn}</textarea></div>
+          <div class="form-field"><label>Name (EN)</label><input id="d-nombre-en" value="${esc(nombreEn)}" placeholder="E.g.: Norway"></div>
+          <div class="form-field"><label>Short description (EN)</label><input id="d-descCorta-en" value="${esc(cortaEn)}" placeholder="Brief description for the card"></div>
+          <div class="form-field"><label>Full description (EN)</label><textarea id="d-desc-en" rows="4">${esc(descEn)}</textarea></div>
           <div class="form-field"><label>${t('common-category',currentLang)} (EN)</label><input id="d-cat-en" value="${esc(cat.en)}"></div>
           <div class="form-field"><label>${t('destinos-duration',currentLang)} (EN)</label><input id="d-dur-en" value="${esc(dur.en)}"></div>
           <div class="form-field"><label>${t('destinos-includes-label',currentLang)} (EN)</label><textarea id="d-incluye-en" rows="4">${esc(inc.en)}</textarea></div>
         </div>
         <div id="dest-fields-ca" style="display:none">
-          <div class="form-field"><label>Nom (CA)</label><input id="d-nombre-ca" value="${nombreCa}" placeholder="Ex: Noruega"></div>
-          <div class="form-field"><label>Descripció curta (CA)</label><input id="d-descCorta-ca" value="${cortaCa}" placeholder="Breu descripció per a la targeta"></div>
-          <div class="form-field"><label>Descripció completa (CA)</label><textarea id="d-desc-ca" rows="4">${descCa}</textarea></div>
+          <div class="form-field"><label>Nom (CA)</label><input id="d-nombre-ca" value="${esc(nombreCa)}" placeholder="Ex: Noruega"></div>
+          <div class="form-field"><label>Descripció curta (CA)</label><input id="d-descCorta-ca" value="${esc(cortaCa)}" placeholder="Breu descripció per a la targeta"></div>
+          <div class="form-field"><label>Descripció completa (CA)</label><textarea id="d-desc-ca" rows="4">${esc(descCa)}</textarea></div>
           <div class="form-field"><label>${t('common-category',currentLang)} (CA)</label><input id="d-cat-ca" value="${esc(cat.ca)}"></div>
           <div class="form-field"><label>${t('destinos-duration',currentLang)} (CA)</label><input id="d-dur-ca" value="${esc(dur.ca)}"></div>
           <div class="form-field"><label>${t('destinos-includes-label',currentLang)} (CA)</label><textarea id="d-incluye-ca" rows="4">${esc(inc.ca)}</textarea></div>
@@ -286,15 +289,15 @@ window.abrirModalDestino = function(d={}) {
           <div id="d-img-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
             ${(d.imagenes&&d.imagenes.length>0) ? d.imagenes.map((img,index)=>`
               <div class="img-container" style="position:relative;width:80px;height:80px;border-radius:6px;overflow:hidden;cursor:pointer;">
-                <img src="${img}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:${d.imagen===img?'3px solid #b8924a':'none'}">
+                <img src="${esc(img)}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:${d.imagen===img?'3px solid #b8924a':'none'}">
                 <span style="position:absolute;top:2px;right:2px;background:red;color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-weight:bold;cursor:pointer;font-size:11px;" onclick="removeImage(${index})">x</span>
                 <span style="position:absolute;bottom:2px;left:2px;background:#b8924a;color:white;border-radius:4px;padding:2px 4px;font-size:9px;cursor:pointer;" onclick="setPrincipal(${index})">${t('destinos-principal-badge',currentLang)}</span>
               </div>`).join("")
-            : (d.imagen ? `<div style="position:relative;width:80px;height:80px;border-radius:6px;overflow:hidden;"><img src="${d.imagen}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;"></div>` : "")}
+            : (d.imagen ? `<div style="position:relative;width:80px;height:80px;border-radius:6px;overflow:hidden;"><img src="${esc(d.imagen)}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;"></div>` : "")}
           </div>
         </div>
         <div class="form-row-admin">
-          <div class="form-field"><label>${t('common-order',currentLang)}</label><input id="d-orden" type="number" value="${d.orden||0}"></div>
+          <div class="form-field"><label>${t('common-order',currentLang)}</label><input id="d-orden" type="number" value="${esc(d.orden||0)}"></div>
           <div class="form-field"><label>${t('common-status',currentLang)}</label>
             <select id="d-activo">
               <option value="true"  ${d.activo!==false?'selected':''}>${t('common-active',currentLang)}</option>
@@ -304,7 +307,7 @@ window.abrirModalDestino = function(d={}) {
         </div>
         <div class="modal-footer">
           <button class="btn-secondary" onclick="cerrarModal('modal-destino')">${t('common-cancel',currentLang)}</button>
-          <button class="btn-primary" onclick="guardarDestino('${d.id||''}')">${t('common-save',currentLang)}</button>
+          <button class="btn-primary" onclick="guardarDestino(${jsArg(d.id||'')})">${t('common-save',currentLang)}</button>
         </div>
         <div id="modal-msg" style="margin-top:10px;font-size:13px;"></div>
       </div>
@@ -438,12 +441,12 @@ async function renderExperiencias() {
     <div class="items-list">
       ${items.length ? items.map(e=>`
         <div class="item-row">
-          <img src="${e.imagen||'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=100&q=60'}" class="item-thumb" alt="${mlVal(e.nombre,currentLang)}">
-          <div class="item-info"><strong>${mlVal(e.nombre,currentLang)}</strong><span>${e.categoria||''}</span></div>
+          <img src="${esc(e.imagen||'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=100&q=60')}" class="item-thumb" alt="${esc(mlVal(e.nombre,currentLang))}">
+          <div class="item-info"><strong>${esc(mlVal(e.nombre,currentLang))}</strong><span>${esc(e.categoria||'')}</span></div>
           <div class="item-actions">
             <span class="badge-status ${e.activo!==false?'activo':'inactivo'}">${e.activo!==false?t('common-active',currentLang):t('common-hidden',currentLang)}</span>
-            <button class="btn-edit" onclick="editarExp('${e.id}')">✏️ ${t('common-edit',currentLang)}</button>
-            <button class="btn-del"  onclick="eliminarExp('${e.id}','${mlVal(e.nombre,currentLang).replace(/'/g,"\\'")}')">🗑</button>
+            <button class="btn-edit" onclick="editarExp(${jsArg(e.id)})">✏️ ${t('common-edit',currentLang)}</button>
+            <button class="btn-del"  onclick="eliminarExp(${jsArg(e.id)}, ${jsArg(mlVal(e.nombre,currentLang))})">🗑</button>
           </div>
         </div>`).join("") : `<div class="empty-state-admin">${t('exp-empty',currentLang)}</div>`}
     </div>
@@ -863,7 +866,7 @@ window.abrirModalExp = function(e={}) {
       <div class="modal-header"><h3>${e.id?t('exp-modal-edit',currentLang):t('exp-modal-new',currentLang)}</h3><button onclick="cerrarModal('modal-exp')">×</button></div>
       <div class="modal-body">
 
-        <div class="form-field"><label>${t('common-category',currentLang)}</label><input id="e-cat" value="${e.categoria||''}" placeholder="Ej: Aventura"></div>
+        <div class="form-field"><label>${t('common-category',currentLang)}</label><input id="e-cat" value="${esc(e.categoria||'')}" placeholder="Ej: Aventura"></div>
 
         <div style="display:flex;gap:6px;margin:14px 0 10px;align-items:center;flex-wrap:wrap;">
           <button id="exp-tab-es" class="btn-tab active" onclick="expLang('es')">🇪🇸 Español</button>
@@ -874,28 +877,28 @@ window.abrirModalExp = function(e={}) {
         </div>
 
         <div id="exp-fields-es">
-          <div class="form-field"><label>Nombre * (ES)</label><input id="e-nombre-es" value="${nombreEs}" placeholder="Ej: Trekking en Patagonia"></div>
-          <div class="form-field"><label>Descripción (ES)</label><textarea id="e-desc-es" rows="3">${descEs}</textarea></div>
+          <div class="form-field"><label>Nombre * (ES)</label><input id="e-nombre-es" value="${esc(nombreEs)}" placeholder="Ej: Trekking en Patagonia"></div>
+          <div class="form-field"><label>Descripción (ES)</label><textarea id="e-desc-es" rows="3">${esc(descEs)}</textarea></div>
         </div>
         <div id="exp-fields-en" style="display:none">
-          <div class="form-field"><label>Nombre (EN)</label><input id="e-nombre-en" value="${nombreEn}" placeholder="Ej: Patagonia Trekking"></div>
-          <div class="form-field"><label>Description (EN)</label><textarea id="e-desc-en" rows="3">${descEn}</textarea></div>
+          <div class="form-field"><label>Nombre (EN)</label><input id="e-nombre-en" value="${esc(nombreEn)}" placeholder="Ej: Patagonia Trekking"></div>
+          <div class="form-field"><label>Description (EN)</label><textarea id="e-desc-en" rows="3">${esc(descEn)}</textarea></div>
         </div>
         <div id="exp-fields-ca" style="display:none">
-          <div class="form-field"><label>Nom (CA)</label><input id="e-nombre-ca" value="${nombreCa}" placeholder="Ej: Trekking a la Patagònia"></div>
-          <div class="form-field"><label>Descripció (CA)</label><textarea id="e-desc-ca" rows="3">${descCa}</textarea></div>
+          <div class="form-field"><label>Nom (CA)</label><input id="e-nombre-ca" value="${esc(nombreCa)}" placeholder="Ej: Trekking a la Patagònia"></div>
+          <div class="form-field"><label>Descripció (CA)</label><textarea id="e-desc-ca" rows="3">${esc(descCa)}</textarea></div>
         </div>
 
         <div class="form-field" style="margin-top:12px">
           <label>${t('common-image',currentLang)}</label>
           <div style="display:flex;gap:10px;align-items:center;">
-            <input id="e-img" value="${e.imagen||''}" placeholder="URL de imagen" style="flex:1">
+            <input id="e-img" value="${esc(e.imagen||'')}" placeholder="URL de imagen" style="flex:1">
             <input type="file" id="e-img-file" accept="image/*" style="display:none" onchange="subirImgExp(event)">
             <button class="btn-upload" onclick="document.getElementById('e-img-file').click()">${t('exp-upload',currentLang)}</button>
           </div>
         </div>
         <div class="form-row-admin">
-          <div class="form-field"><label>${t('common-order',currentLang)}</label><input id="e-orden" type="number" value="${e.orden||0}"></div>
+          <div class="form-field"><label>${t('common-order',currentLang)}</label><input id="e-orden" type="number" value="${esc(e.orden||0)}"></div>
           <div class="form-field"><label>${t('common-status',currentLang)}</label>
             <select id="e-activo">
               <option value="true" ${e.activo!==false?'selected':''}>${t('common-active',currentLang)}</option>
@@ -905,7 +908,7 @@ window.abrirModalExp = function(e={}) {
         </div>
         <div class="modal-footer">
           <button class="btn-secondary" onclick="cerrarModal('modal-exp')">${t('common-cancel',currentLang)}</button>
-          <button class="btn-primary" onclick="guardarExp('${e.id||''}')">${t('common-save',currentLang)}</button>
+          <button class="btn-primary" onclick="guardarExp(${jsArg(e.id||'')})">${t('common-save',currentLang)}</button>
         </div>
         <div id="modal-exp-msg" style="margin-top:10px;font-size:13px;"></div>
       </div>
@@ -970,15 +973,15 @@ async function renderBlog() {
     <div class="items-list">
       ${posts.length ? posts.map(p=>`
         <div class="item-row">
-          <img src="${p.imagen||'https://images.unsplash.com/photo-1488085061387-422e29b40080?w=100&q=60'}" class="item-thumb" alt="${mlVal(p.titulo,currentLang)}">
+          <img src="${esc(p.imagen||'https://images.unsplash.com/photo-1488085061387-422e29b40080?w=100&q=60')}" class="item-thumb" alt="${esc(mlVal(p.titulo,currentLang))}">
           <div class="item-info">
-            <strong>${mlVal(p.titulo,currentLang)}</strong>
-            <span>${p.categoria||''} · ${formatFecha(p.fecha)} · ${t('blog-by',currentLang)} ${p.autor||'—'}</span>
+            <strong>${esc(mlVal(p.titulo,currentLang))}</strong>
+            <span>${esc(p.categoria||'')} · ${formatFecha(p.fecha)} · ${t('blog-by',currentLang)} ${esc(p.autor||'—')}</span>
           </div>
           <div class="item-actions">
             <span class="badge-status ${p.publicado?'activo':'inactivo'}">${p.publicado?t('blog-published',currentLang):t('blog-draft',currentLang)}</span>
-            <button class="btn-edit" onclick="editarPost('${p.id}')">✏️ ${t('common-edit',currentLang)}</button>
-            <button class="btn-del"  onclick="eliminarPost('${p.id}','${mlVal(p.titulo,currentLang).replace(/'/g,"\\'")}')">🗑</button>
+            <button class="btn-edit" onclick="editarPost(${jsArg(p.id)})">✏️ ${t('common-edit',currentLang)}</button>
+            <button class="btn-del"  onclick="eliminarPost(${jsArg(p.id)}, ${jsArg(mlVal(p.titulo,currentLang))})">🗑</button>
           </div>
         </div>`).join("") : `<div class="empty-state-admin">${t('blog-empty',currentLang)}</div>`}
     </div>
@@ -1002,13 +1005,13 @@ window.abrirModalPost = function(p={}) {
       <div class="modal-header"><h3>${p.id?t('blog-modal-edit',currentLang):t('blog-modal-new',currentLang)}</h3><button onclick="cerrarModal('modal-post')">×</button></div>
       <div class="modal-body">
         <div class="form-row-admin">
-          <div class="form-field"><label>${t('common-category',currentLang)}</label><input id="p-cat" value="${p.categoria||''}" placeholder="Ej: Guías de viaje"></div>
-          <div class="form-field"><label>${t('blog-author',currentLang)}</label><input id="p-autor" value="${p.autor||CU.name}" placeholder="Nombre del autor"></div>
+          <div class="form-field"><label>${t('common-category',currentLang)}</label><input id="p-cat" value="${esc(p.categoria||'')}" placeholder="Ej: Guías de viaje"></div>
+          <div class="form-field"><label>${t('blog-author',currentLang)}</label><input id="p-autor" value="${esc(p.autor||CU.name)}" placeholder="Nombre del autor"></div>
         </div>
         <div class="form-field">
           <label>${t('blog-cover-image',currentLang)}</label>
           <div style="display:flex;gap:10px;align-items:center;">
-            <input id="p-img" value="${p.imagen||''}" placeholder="URL de imagen" style="flex:1">
+            <input id="p-img" value="${esc(p.imagen||'')}" placeholder="URL de imagen" style="flex:1">
             <input type="file" id="p-img-file" accept="image/*" style="display:none" onchange="subirImgPost(event)">
             <button class="btn-upload" onclick="document.getElementById('p-img-file').click()">${t('exp-upload',currentLang)}</button>
           </div>
@@ -1023,8 +1026,8 @@ window.abrirModalPost = function(p={}) {
         </div>
 
         <div id="post-fields-es">
-          <div class="form-field"><label>Título * (ES)</label><input id="p-titulo-es" value="${tituloEs}" placeholder="Título del artículo"></div>
-          <div class="form-field"><label>Resumen (ES)</label><textarea id="p-resumen-es" rows="2">${resumenEs}</textarea></div>
+          <div class="form-field"><label>Título * (ES)</label><input id="p-titulo-es" value="${esc(tituloEs)}" placeholder="Título del artículo"></div>
+          <div class="form-field"><label>Resumen (ES)</label><textarea id="p-resumen-es" rows="2">${esc(resumenEs)}</textarea></div>
           <div class="form-field">
             <label>Contenido (ES)</label>
             <div class="editor-toolbar">
@@ -1033,12 +1036,12 @@ window.abrirModalPost = function(p={}) {
               <button type="button" onclick="insertTag('h2','p-contenido-es')">H2</button>
               <button type="button" onclick="insertTag('p','p-contenido-es')">¶</button>
             </div>
-            <textarea id="p-contenido-es" rows="10">${contenidoEs}</textarea>
+            <textarea id="p-contenido-es" rows="10">${esc(contenidoEs)}</textarea>
           </div>
         </div>
         <div id="post-fields-en" style="display:none">
-          <div class="form-field"><label>Title (EN)</label><input id="p-titulo-en" value="${tituloEn}" placeholder="Article title"></div>
-          <div class="form-field"><label>Summary (EN)</label><textarea id="p-resumen-en" rows="2">${resumenEn}</textarea></div>
+          <div class="form-field"><label>Title (EN)</label><input id="p-titulo-en" value="${esc(tituloEn)}" placeholder="Article title"></div>
+          <div class="form-field"><label>Summary (EN)</label><textarea id="p-resumen-en" rows="2">${esc(resumenEn)}</textarea></div>
           <div class="form-field">
             <label>Content (EN)</label>
             <div class="editor-toolbar">
@@ -1047,12 +1050,12 @@ window.abrirModalPost = function(p={}) {
               <button type="button" onclick="insertTag('h2','p-contenido-en')">H2</button>
               <button type="button" onclick="insertTag('p','p-contenido-en')">¶</button>
             </div>
-            <textarea id="p-contenido-en" rows="10">${contenidoEn}</textarea>
+            <textarea id="p-contenido-en" rows="10">${esc(contenidoEn)}</textarea>
           </div>
         </div>
         <div id="post-fields-ca" style="display:none">
-          <div class="form-field"><label>Títol (CA)</label><input id="p-titulo-ca" value="${tituloCa}" placeholder="Títol de l'article"></div>
-          <div class="form-field"><label>Resum (CA)</label><textarea id="p-resumen-ca" rows="2">${resumenCa}</textarea></div>
+          <div class="form-field"><label>Títol (CA)</label><input id="p-titulo-ca" value="${esc(tituloCa)}" placeholder="Títol de l'article"></div>
+          <div class="form-field"><label>Resum (CA)</label><textarea id="p-resumen-ca" rows="2">${esc(resumenCa)}</textarea></div>
           <div class="form-field">
             <label>Contingut (CA)</label>
             <div class="editor-toolbar">
@@ -1061,12 +1064,12 @@ window.abrirModalPost = function(p={}) {
               <button type="button" onclick="insertTag('h2','p-contenido-ca')">H2</button>
               <button type="button" onclick="insertTag('p','p-contenido-ca')">¶</button>
             </div>
-            <textarea id="p-contenido-ca" rows="10">${contenidoCa}</textarea>
+            <textarea id="p-contenido-ca" rows="10">${esc(contenidoCa)}</textarea>
           </div>
         </div>
 
         <div class="form-row-admin" style="margin-top:12px">
-          <div class="form-field"><label>${t('blog-date',currentLang)}</label><input id="p-fecha" type="date" value="${p.fecha?p.fecha.slice(0,10):new Date().toISOString().slice(0,10)}"></div>
+          <div class="form-field"><label>${t('blog-date',currentLang)}</label><input id="p-fecha" type="date" value="${esc(p.fecha?p.fecha.slice(0,10):new Date().toISOString().slice(0,10))}"></div>
           <div class="form-field"><label>${t('common-status',currentLang)}</label>
             <select id="p-pub">
               <option value="true"  ${p.publicado?'selected':''}>${t('blog-published',currentLang)}</option>
@@ -1076,7 +1079,7 @@ window.abrirModalPost = function(p={}) {
         </div>
         <div class="modal-footer">
           <button class="btn-secondary" onclick="cerrarModal('modal-post')">${t('common-cancel',currentLang)}</button>
-          <button class="btn-primary" onclick="guardarPost('${p.id||''}')">${t('common-save',currentLang)}</button>
+          <button class="btn-primary" onclick="guardarPost(${jsArg(p.id||'')})">${t('common-save',currentLang)}</button>
         </div>
         <div id="modal-post-msg" style="margin-top:10px;font-size:13px;"></div>
       </div>
@@ -1196,11 +1199,11 @@ async function renderSettings() {
       <div class="settings-card">
         <div class="settings-card-title">${translate('settings-whatsapp')}</div>
         <div class="form-field"><label>${translate('settings-whatsapp-number')}</label>
-          <input id="s-wa" value="${s.whatsapp||''}" placeholder="34606715917" inputmode="tel">
+          <input id="s-wa" value="${esc(s.whatsapp||'')}" placeholder="34606715917" inputmode="tel">
           <span class="field-hint">${translate('settings-whatsapp-hint')}</span>
         </div>
         <div class="form-field"><label>${translate('settings-whatsapp-msg')}</label>
-          <input id="s-wa-msg" value="${s.whatsappMsg||'Hola, quisiera información sobre sus viajes'}">
+          <input id="s-wa-msg" value="${esc(s.whatsappMsg||'Hola, quisiera información sobre sus viajes')}">
         </div>
       </div>
       <div class="settings-card">
@@ -1215,9 +1218,9 @@ async function renderSettings() {
       </div>
       <div class="settings-card">
         <div class="settings-card-title">${translate('settings-contact')}</div>
-        <div class="form-field"><label>${translate('settings-phone')}</label><input id="s-tel" value="${s.tel||''}" placeholder="+34 606 715 917"></div>
-        <div class="form-field"><label>${translate('settings-email')}</label><input id="s-email" value="${s.email||''}" placeholder="info@lamaleta.com"></div>
-        <div class="form-field"><label>${translate('settings-address')}</label><input id="s-addr" value="${s.addr||''}" placeholder="Rambla Sant Martí, 62 · Arenys de Munt"></div>
+        <div class="form-field"><label>${translate('settings-phone')}</label><input id="s-tel" value="${esc(s.tel||'')}" placeholder="+34 606 715 917"></div>
+        <div class="form-field"><label>${translate('settings-email')}</label><input id="s-email" value="${esc(s.email||'')}" placeholder="info@lamaleta.com"></div>
+        <div class="form-field"><label>${translate('settings-address')}</label><input id="s-addr" value="${esc(s.addr||'')}" placeholder="Rambla Sant Martí, 62 · Arenys de Munt"></div>
         <div class="form-field">
           <label>${translate('settings-hours')}</label>
           <div class="horario-idiomas">
@@ -1232,11 +1235,11 @@ async function renderSettings() {
       </div>
       <div class="settings-card">
         <div class="settings-card-title">${translate('settings-colors')}</div>
-        <div class="cp-row"><label>${translate('settings-color-gold')}</label><input type="color" id="cp-gold"  value="${s.gold||'#b8924a'}" oninput="previewColor()"></div>
-        <div class="cp-row"><label>${translate('settings-color-bg')}</label>  <input type="color" id="cp-bg"    value="${s.bg||'#f5f0eb'}" oninput="previewColor()"></div>
-        <div class="cp-row"><label>${translate('settings-color-text')}</label> <input type="color" id="cp-text"  value="${s.text||'#3a3028'}" oninput="previewColor()"></div>
-        <div class="cp-row"><label>${translate('settings-color-primary')}</label>    <input type="color" id="cp-pri"   value="${s.primary||'#2c2416'}" oninput="previewColor()"></div>
-        <div class="cp-row"><label>${translate('settings-color-card')}</label>     <input type="color" id="cp-card"  value="${s.cardBg||'#faf7f3'}" oninput="previewColor()"></div>
+        <div class="cp-row"><label>${translate('settings-color-gold')}</label><input type="color" id="cp-gold"  value="${esc(s.gold||'#b8924a')}" oninput="previewColor()"></div>
+        <div class="cp-row"><label>${translate('settings-color-bg')}</label>  <input type="color" id="cp-bg"    value="${esc(s.bg||'#f5f0eb')}" oninput="previewColor()"></div>
+        <div class="cp-row"><label>${translate('settings-color-text')}</label> <input type="color" id="cp-text"  value="${esc(s.text||'#3a3028')}" oninput="previewColor()"></div>
+        <div class="cp-row"><label>${translate('settings-color-primary')}</label>    <input type="color" id="cp-pri"   value="${esc(s.primary||'#2c2416')}" oninput="previewColor()"></div>
+        <div class="cp-row"><label>${translate('settings-color-card')}</label>     <input type="color" id="cp-card"  value="${esc(s.cardBg||'#faf7f3')}" oninput="previewColor()"></div>
         <button class="btn-secondary" onclick="resetColoresDefault()" style="margin-top:10px;font-size:13px;padding:7px 16px;">${translate('settings-reset-colors')}</button>
         <div class="cp-hint">${translate('settings-colors-hint')}</div>
       </div>
@@ -1258,7 +1261,7 @@ async function renderSettings() {
             <button class="btn-upload" onclick="uploadLogo()">${translate('settings-upload-logo')}</button>
             <input type="file" id="logo-input" accept="image/*" style="display:none" onchange="handleLogoUpload(this)">
             <div class="current-image" id="current-logo">
-              ${s.logoUrl ? `<img src="${s.logoUrl}" alt="Logo actual" style="max-width:100px; margin-top:8px;">` : `<span style="color:#666; font-size:13px;">${translate('settings-no-logo')}</span>`}
+              ${s.logoUrl ? `<img src="${esc(s.logoUrl)}" alt="Logo actual" style="max-width:100px; margin-top:8px;">` : `<span style="color:#666; font-size:13px;">${translate('settings-no-logo')}</span>`}
             </div>
           </div>
         </div>
@@ -1268,7 +1271,7 @@ async function renderSettings() {
             <button class="btn-upload" onclick="uploadHeroImage()">${translate('settings-upload-hero')}</button>
             <input type="file" id="hero-input" accept="image/*" style="display:none" onchange="handleHeroUpload(this)">
             <div class="current-image" id="current-hero">
-              ${s.heroImageUrl ? `<img src="${s.heroImageUrl}" alt="Hero actual" style="max-width:200px; margin-top:8px;">` : `<span style="color:#666; font-size:13px;">${translate('settings-default-hero')}</span>`}
+              ${s.heroImageUrl ? `<img src="${esc(s.heroImageUrl)}" alt="Hero actual" style="max-width:200px; margin-top:8px;">` : `<span style="color:#666; font-size:13px;">${translate('settings-default-hero')}</span>`}
             </div>
           </div>
         </div>
@@ -1447,10 +1450,10 @@ async function renderUsuarios() {
       <tbody>
         ${users.map(u=>`
           <tr>
-            <td>${u.email}</td>
-            <td><strong>${u.name}</strong></td>
-            <td><span class="${u.role==='superadmin'?'badge-s':u.role==='admin'?'badge-a':'badge-e'}">${u.role}</span></td>
-            <td>${isSuperAdmin && u.role!=='superadmin' ? `<button class="del-btn" onclick="delUser('${u.id}')">${t('usuarios-delete-btn',currentLang)}</button>` : '—'}</td>
+            <td>${esc(u.email)}</td>
+            <td><strong>${esc(u.name)}</strong></td>
+            <td><span class="${u.role==='superadmin'?'badge-s':u.role==='admin'?'badge-a':'badge-e'}">${esc(u.role)}</span></td>
+            <td>${isSuperAdmin && u.role!=='superadmin' ? `<button class="del-btn" onclick="delUser(${jsArg(u.id)})">${t('usuarios-delete-btn',currentLang)}</button>` : '—'}</td>
           </tr>`).join("")}
       </tbody>
     </table>
@@ -1694,7 +1697,7 @@ function fotoSitioUrl(key) {
 function fotoCampoHTML(key) {
   return `
     <div class="foto-sitio">
-      <img id="foto-${key}" src="${fotoSitioUrl(key)}" alt="">
+      <img id="foto-${key}" src="${esc(fotoSitioUrl(key))}" alt="">
       <div class="foto-sitio-acciones">
         <input type="file" id="file-${key}" accept="image/*" style="display:none" onchange="window._subirFotoSitio('${key}', this)">
         <button type="button" class="btn-upload" id="btn-foto-${key}" onclick="document.getElementById('file-${key}').click()">${t('cms-photo-change', currentLang)}</button>
@@ -1858,8 +1861,8 @@ async function renderContenido() {
                 <div class="form-field">
                   <label>${c.label}</label>
                   ${c.tipo === "foto" ? fotoCampoHTML(c.key) : c.tipo === "textarea"
-                    ? `<textarea id="cf-${c.key}" rows="2">${val(c.key)}</textarea>`
-                    : `<input id="cf-${c.key}" type="text" value="${(val(c.key)||'').replace(/"/g,'&quot;')}">`
+                    ? `<textarea id="cf-${c.key}" rows="2">${esc(val(c.key))}</textarea>`
+                    : `<input id="cf-${c.key}" type="text" value="${esc(val(c.key)||'')}">`
                   }
                 </div>`).join("")}
             </div>
@@ -2105,7 +2108,7 @@ window.handleLogoUpload = async function(input) {
 
     // Actualizar vista
     document.getElementById("current-logo").innerHTML =
-      `<img src="${url}" alt="Logo actual" style="max-width:100px; margin-top:8px;">`;
+      `<img src="${esc(url)}" alt="Logo actual" style="max-width:100px; margin-top:8px;">`;
 
     showToast(t('msg-logo-updated', currentLang));
 
@@ -2145,7 +2148,7 @@ window.handleHeroUpload = async function(input) {
 
     // Actualizar vista
     document.getElementById("current-hero").innerHTML =
-      `<img src="${url}" alt="Hero actual" style="max-width:200px; margin-top:8px;">`;
+      `<img src="${esc(url)}" alt="Hero actual" style="max-width:200px; margin-top:8px;">`;
 
     showToast(t('msg-hero-updated', currentLang));
 
