@@ -368,6 +368,32 @@ export async function saveConsulta(data) {
   });
   return id;
 }
+// ─── Copia de seguridad ─────────────────────────────────────
+// Lee todo lo que el superadmin puede leer y lo devuelve como un objeto listo
+// para guardar en JSON. Las fechas de Firestore (Timestamp) pasan a ISO.
+// No incluye limites/ (registro técnico del antispam) ni las fotos, que están
+// en Cloudinary: solo sus URLs.
+const BACKUP_COLECCIONES = ["destinos", "experiencias", "posts", "consultas", "users"];
+const BACKUP_SITE = ["content", "colors", "images", "settings"];
+function aJSON(v) {
+  if (v && typeof v.toDate === "function") return v.toDate().toISOString();
+  if (Array.isArray(v)) return v.map(aJSON);
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, aJSON(x)]));
+  return v;
+}
+export async function exportarDatos() {
+  const datos = { proyecto: firebaseConfig.projectId, fecha: new Date().toISOString(), colecciones: {}, site: {} };
+  for (const c of BACKUP_COLECCIONES) {
+    const snap = await getDocs(collection(db, c));
+    datos.colecciones[c] = Object.fromEntries(snap.docs.map(d => [d.id, aJSON(d.data())]));
+  }
+  for (const id of BACKUP_SITE) {
+    const snap = await getDoc(doc(db, "site", id));
+    if (snap.exists()) datos.site[id] = aJSON(snap.data());
+  }
+  return datos;
+}
+
 export async function getConsultas() {
   const snap = await getDocs(collection(db, "consultas"));
   return snap.docs

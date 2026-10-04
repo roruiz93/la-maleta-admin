@@ -11,7 +11,7 @@ import {
   getDestinos, saveDestino, deleteDestino, updateDestinoTextos,
   getExperiencias, saveExperiencia, deleteExperiencia,
   getPosts, getPost, savePost, deletePost,
-  getConsultas, marcarLeida, uploadImage,
+  getConsultas, marcarLeida, uploadImage, exportarDatos,
   uploadImageConId, replaceSiteImage, listenImages
 } from "./firebase.js";
 import { translations, langMeta, t, tf } from "./i18n.js";
@@ -176,6 +176,8 @@ async function renderDashboard() {
       </div>
     </div>
     <div class="sec-tip">${translate('tip-content')}</div>
+    ${CU.role === "superadmin" && diasDesdeBackup() > 30 ? `
+    <div class="sec-tip" style="border-left-color:#e67e22;cursor:pointer" onclick="showSection('settings')">${translate('backup-recordatorio')}</div>` : ""}
     <div style="margin-top:32px;">
       <h3 style="font-family:'Playfair Display',serif;font-size:20px;margin-bottom:16px;">Últimas consultas</h3>
       ${consultas.slice(0,5).map(c=>`
@@ -1277,6 +1279,13 @@ async function renderSettings() {
         </div>
       </div>
     </div>
+    ${CU.role === "superadmin" ? `
+    <div class="settings-card" style="margin-top:24px;">
+      <div class="settings-card-title">${translate('backup-title')}</div>
+      <p class="field-hint" style="margin-bottom:12px;">${translate('backup-desc')}</p>
+      <p style="font-size:13px;margin-bottom:12px;" id="backup-ultimo">${textoUltimoBackup()}</p>
+      <button class="btn-secondary" id="btn-backup" onclick="descargarBackup()">${translate('backup-btn')}</button>
+    </div>` : ""}
     <div style="margin-top:24px;">
       <button class="btn-primary" onclick="guardarSettings()" style="padding:14px 32px;font-size:15px;">${translate('settings-save')}</button>
       <button class="btn-secondary" onclick="togglePreview()" style="padding:14px 32px;font-size:15px;margin-left:12px;" id="toggle-preview-btn">${translate('settings-preview')}</button>
@@ -1437,6 +1446,39 @@ window.guardarSettings = async function() {
     showToast(t('msg-config-saved', currentLang));
     setTimeout(()=>document.getElementById("settings-msg").textContent="", 3000);
   } catch(e) { document.getElementById("settings-msg").textContent = "❌ Error: " + e.message; }
+};
+
+// ─── COPIA DE SEGURIDAD ───────────────────────────────────
+// Baja un JSON con todo el contenido (ver exportarDatos). La fecha de la
+// última copia se recuerda en este navegador para el recordatorio del inicio.
+const BACKUP_LS = "lm_ultimo_backup";
+function diasDesdeBackup() {
+  const f = Date.parse(localStorage.getItem(BACKUP_LS) || "");
+  return isNaN(f) ? Infinity : (Date.now() - f) / 86400000;
+}
+function textoUltimoBackup() {
+  const f = localStorage.getItem(BACKUP_LS);
+  return f ? tf('backup-ultimo', currentLang, { fecha: new Date(f).toLocaleString() }) : t('backup-nunca', currentLang);
+}
+window.descargarBackup = async function() {
+  const btn = document.getElementById("btn-backup");
+  btn.disabled = true;
+  try {
+    const datos = await exportarDatos();
+    const blob = new Blob([JSON.stringify(datos, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `la-maleta-copia-${datos.fecha.slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    localStorage.setItem(BACKUP_LS, datos.fecha);
+    document.getElementById("backup-ultimo").textContent = textoUltimoBackup();
+    showToast(t('backup-ok', currentLang));
+  } catch (e) {
+    showToast("❌ " + e.message);
+  } finally {
+    btn.disabled = false;
+  }
 };
 
 // ─── USUARIOS ─────────────────────────────────────────────
