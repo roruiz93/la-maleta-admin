@@ -1707,7 +1707,6 @@ const CONTENIDO_SECCIONES = [
   {
     titulo: "🧭 Navegación", tituloKey: "cms-sec-nav", pagina: "index.html",
     campos: [
-      { key: "logo",    label: "Logo — texto",       tipo: "input" },
       { key: "nav1",    label: "Menú — Destinos",    tipo: "input" },
       { key: "nav2",    label: "Menú — Experiencias",tipo: "input" },
       { key: "nav3",    label: "Menú — Nosotros",    tipo: "input" },
