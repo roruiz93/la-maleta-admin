@@ -1276,6 +1276,16 @@ async function renderSettings() {
           </div>
         </div>
         <div class="form-field">
+          <label>${translate('settings-logo-footer')}</label>
+          <div class="image-upload-container">
+            <button class="btn-upload" onclick="document.getElementById('logo-footer-input').click()">${translate('settings-upload-logo')}</button>
+            <input type="file" id="logo-footer-input" accept="image/*" style="display:none" onchange="handleLogoUpload(this, 'logoFooterUrl')">
+            <div class="current-image" id="current-logo-footer" style="background:#2c2418;padding:8px;border-radius:6px;display:inline-block;margin-top:8px;">
+              <img src="${esc(s.logoFooterUrl || (WEB_URL + '/img/logo-blanco.png'))}" alt="Logo de abajo" style="max-width:100px;display:block;">
+            </div>
+          </div>
+        </div>
+        <div class="form-field">
           <label>${translate('settings-hero')}</label>
           <div class="image-upload-container">
             <button class="btn-upload" onclick="uploadHeroImage()">${translate('settings-upload-hero')}</button>
@@ -1446,6 +1456,7 @@ window.guardarSettings = async function() {
     cardBg:  document.getElementById("cp-card").value,
     // Mantener las URLs de imágenes si existen
     logoUrl: currentSettings.logoUrl || null,
+    logoFooterUrl: currentSettings.logoFooterUrl || null,
     heroImageUrl: currentSettings.heroImageUrl || null,
   };
   try {
@@ -2131,7 +2142,8 @@ window.uploadHeroImage = function() {
   document.getElementById("hero-input").click();
 };
 
-window.handleLogoUpload = async function(input) {
+// campo: "logoUrl" (encabezado) o "logoFooterUrl" (pie, sobre fondo oscuro)
+window.handleLogoUpload = async function(input, campo = "logoUrl") {
   if (!input.files || !input.files[0]) return;
 
   const file = input.files[0];
@@ -2152,11 +2164,16 @@ window.handleLogoUpload = async function(input) {
 
     // Actualizar configuración
     const currentSettings = await getSettings();
-    await saveSettings({...currentSettings, logoUrl: url});
+    await saveSettings({...currentSettings, [campo]: url});
 
     // Actualizar vista
-    document.getElementById("current-logo").innerHTML =
-      `<img src="${esc(url)}" alt="Logo actual" style="max-width:100px; margin-top:8px;">`;
+    if (campo === "logoFooterUrl") {
+      document.getElementById("current-logo-footer").innerHTML =
+        `<img src="${esc(url)}" alt="Logo de abajo" style="max-width:100px;display:block;">`;
+    } else {
+      document.getElementById("current-logo").innerHTML =
+        `<img src="${esc(url)}" alt="Logo actual" style="max-width:100px; margin-top:8px;">`;
+    }
 
     showToast(t('msg-logo-updated', currentLang));
 
