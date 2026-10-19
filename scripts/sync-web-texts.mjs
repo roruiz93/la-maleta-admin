@@ -9,7 +9,7 @@ import { fileURLToPath } from "url";
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const webDir = process.argv[2] || path.join(root, "..", "la-maleta-web");
 
-// i18n-compat.js es un script de navegador que cuelga todo de window
+// i18n-compat-2.js es un script de navegador que cuelga todo de window
 const sandbox = {
   window: {},
   localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
@@ -18,7 +18,7 @@ const sandbox = {
   URLSearchParams,
   Intl,
 };
-vm.runInNewContext(fs.readFileSync(path.join(webDir, "src", "i18n-compat.js"), "utf8"), sandbox);
+vm.runInNewContext(fs.readFileSync(path.join(webDir, "src", "i18n-compat-2.js"), "utf8"), sandbox);
 const { translations } = sandbox.window;
 
 // Solo los campos que el admin permite editar
