@@ -73,13 +73,11 @@ export const WEB_DEFAULTS = {
     "wa-btn-txt": "Escribinos por WhatsApp",
     "form-titulo": "Envianos tu consulta",
     "form-subtitulo": "Completá el formulario y te respondemos a la brevedad.",
-    "logo": "La Maleta",
     "nav1": "Destinos",
     "nav2": "Experiencias",
     "nav3": "Nosotros",
     "nav4": "Blog",
-    "nav5": "Contacto",
-    "nav-cta": "Solicitá información"
+    "nav5": "Contacto"
   },
   "ca": {
     "hero-h1": "Organitzem els viatges<br>que sempre has somiat",
@@ -153,13 +151,11 @@ export const WEB_DEFAULTS = {
     "wa-btn-txt": "Escriu-nos per WhatsApp",
     "form-titulo": "Envia'ns la teva consulta",
     "form-subtitulo": "Emplena el formulari i et responem aviat.",
-    "logo": "La Maleta",
     "nav1": "Destinacions",
     "nav2": "Experiències",
     "nav3": "Nosaltres",
     "nav4": "Blog",
-    "nav5": "Contacte",
-    "nav-cta": "Sol·licita informació"
+    "nav5": "Contacte"
   },
   "en": {
     "hero-h1": "We organize the trips<br>you've always dreamed of",
@@ -233,17 +229,16 @@ export const WEB_DEFAULTS = {
     "wa-btn-txt": "Contact us on WhatsApp",
     "form-titulo": "Send us your inquiry",
     "form-subtitulo": "Fill out the form and we'll get back to you soon.",
-    "logo": "La Maleta",
     "nav1": "Destinations",
     "nav2": "Experiences",
     "nav3": "About Us",
     "nav4": "Blog",
-    "nav5": "Contact",
-    "nav-cta": "Request Information"
+    "nav5": "Contact"
   }
 };
 
 export const WEB_DEFAULT_IMAGES = {
+  "nos-img": "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&q=80",
   "e1-img": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&q=80",
   "e2-img": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&q=80",
   "e3-img": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=300&q=80"

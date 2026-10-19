@@ -34,13 +34,13 @@ for (const lang of ["es", "ca", "en"]) {
   for (const k of keys) if (translations[lang]?.[k] !== undefined) out[lang][k] = translations[lang][k];
 }
 
-// Fotos por defecto: el src de cada <img data-img="..."> en las páginas de la web
+// Fotos por defecto: el data-default (o el src) de cada <img data-img="..."> en las páginas de la web
 const imagenes = {};
 for (const pagina of fs.readdirSync(webDir).filter(n => n.endsWith(".html"))) {
   const html = fs.readFileSync(path.join(webDir, pagina), "utf8");
   for (const [tag] of html.matchAll(/<img\b[^>]*>/g)) {
     const id = tag.match(/data-img="([^"]+)"/)?.[1];
-    const src = tag.match(/\ssrc="([^"]+)"/)?.[1];
+    const src = tag.match(/\sdata-default="([^"]+)"/)?.[1] || tag.match(/\ssrc="([^"]+)"/)?.[1];
     if (id && src && fotoKeys.includes(id)) imagenes[id] = src;
   }
 }

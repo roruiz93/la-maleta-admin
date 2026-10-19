@@ -1679,6 +1679,7 @@ const CONTENIDO_SECCIONES = [
       { key: "nos-p2",         label: "Párrafo 2",                         tipo: "textarea" },
       { key: "nos-p3",         label: "Párrafo 3",                         tipo: "textarea" },
       { key: "nos-btn",        label: "Botón Contacto",                    tipo: "input"    },
+      { key: "nos-img",        label: "Foto principal (junto al texto)",   tipo: "foto"     },
       { key: "stat1",          label: "Estadística 1 — Número",            tipo: "input"    },
       { key: "stat1-lbl",      label: "Estadística 1 — Etiqueta",          tipo: "input"    },
       { key: "stat2",          label: "Estadística 2 — Número",            tipo: "input"    },
@@ -1753,14 +1754,18 @@ function fotoSitioUrl(key) {
   return _imagenesSitio[key] || WEB_DEFAULT_IMAGES[key] || "";
 }
 
+// Fotos que no son de una persona: se muestran enteras (sin recorte a la cara)
+const FOTOS_ANCHAS = ["nos-img"];
+
 function fotoCampoHTML(key) {
+  const ancha = FOTOS_ANCHAS.includes(key);
   return `
-    <div class="foto-sitio">
+    <div class="foto-sitio${ancha ? " foto-sitio-ancha" : ""}">
       <img id="foto-${key}" src="${esc(fotoSitioUrl(key))}" alt="">
       <div class="foto-sitio-acciones">
         <input type="file" id="file-${key}" accept="image/*" style="display:none" onchange="window._subirFotoSitio('${key}', this)">
         <button type="button" class="btn-upload" id="btn-foto-${key}" onclick="document.getElementById('file-${key}').click()">${t('cms-photo-change', currentLang)}</button>
-        <span class="foto-sitio-hint">${t('cms-photo-hint', currentLang)}</span>
+        <span class="foto-sitio-hint">${t(ancha ? 'cms-photo-hint-wide' : 'cms-photo-hint', currentLang)}</span>
       </div>
     </div>`;
 }
@@ -1777,8 +1782,11 @@ window._subirFotoSitio = async function(key, input) {
   btn.textContent = t('cms-photo-uploading', currentLang);
   try {
     const { url, publicId } = await uploadImageConId(file);
-    // Cuadrada y centrada en la cara, igual para todo el equipo
-    const urlFinal = url.replace("/upload/", "/upload/c_fill,g_face,w_400,h_400,q_auto,f_auto/");
+    // Equipo: cuadrada y centrada en la cara. Fotos anchas: enteras, máx. 1200px.
+    const transformacion = FOTOS_ANCHAS.includes(key)
+      ? "c_limit,w_1200,q_auto,f_auto"
+      : "c_fill,g_face,w_400,h_400,q_auto,f_auto";
+    const urlFinal = url.replace("/upload/", `/upload/${transformacion}/`);
     await replaceSiteImage(key, urlFinal, publicId);
     _imagenesSitio[key] = urlFinal;
     const img = document.getElementById(`foto-${key}`);

@@ -408,6 +408,7 @@ table.ut td { padding:10px 11px; border-bottom:1px solid var(--border); font-siz
 /* ─── FOTOS DEL SITIO (equipo) ─── */
 .foto-sitio { display:flex; align-items:center; gap:14px; }
 .foto-sitio img { width:72px; height:72px; object-fit:cover; border-radius:50%; border:2px solid var(--border); background:var(--bg); flex-shrink:0; }
+.foto-sitio-ancha img { width:120px; height:80px; border-radius:6px; }
 .foto-sitio-acciones { display:flex; flex-direction:column; align-items:flex-start; gap:4px; }
 .foto-sitio-hint { font-size:11px; color:var(--text-l); }
 
