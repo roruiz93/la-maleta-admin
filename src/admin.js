@@ -899,6 +899,13 @@ window.abrirModalExp = function(e={}) {
             <button class="btn-upload" onclick="document.getElementById('e-img-file').click()">${t('exp-upload',currentLang)}</button>
           </div>
         </div>
+        <div class="form-field">
+          <label>${t('exp-image-web',currentLang)}</label>
+          <select id="e-mostrar-img">
+            <option value="true" ${e.mostrarImagen!==false?'selected':''}>${t('exp-image-show',currentLang)}</option>
+            <option value="false" ${e.mostrarImagen===false?'selected':''}>${t('exp-image-hide',currentLang)}</option>
+          </select>
+        </div>
         <div class="form-row-admin">
           <div class="form-field"><label>${t('common-order',currentLang)}</label><input id="e-orden" type="number" value="${esc(e.orden||0)}"></div>
           <div class="form-field"><label>${t('common-status',currentLang)}</label>
@@ -939,6 +946,7 @@ window.guardarExp = async function(id) {
     },
     categoria:   document.getElementById("e-cat").value.trim(),
     imagen:      document.getElementById("e-img").value.trim(),
+    mostrarImagen: document.getElementById("e-mostrar-img").value === "true",
     orden:       parseInt(document.getElementById("e-orden").value)||0,
     activo:      document.getElementById("e-activo").value === "true",
   };
